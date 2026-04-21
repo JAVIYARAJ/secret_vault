@@ -298,7 +298,7 @@ class _Sidebar extends StatelessWidget {
             child: Row(
               children: [
                 Text(
-                  'Projects/folders',
+                  'PROJECTS/FOLDERS',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -352,6 +352,8 @@ class _Sidebar extends StatelessWidget {
                       context.read<ProjectBloc>().add(ClearTargetSecret());
                     }
                   }
+                } else if (state is ProjectLoaded && state.selectedProjectId == null) {
+                  context.read<SecretBloc>().add(ClearSecrets());
                 }
               },
               builder: (context, state) {

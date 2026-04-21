@@ -12,6 +12,7 @@ import 'blocs/settings/settings_event.dart';
 import 'blocs/settings/settings_state.dart';
 import 'blocs/audit/audit_bloc.dart';
 import 'blocs/search/search_bloc.dart';
+import 'blocs/import/import_bloc.dart';
 
 import 'screens/lock_screen.dart';
 import 'theme/app_theme.dart';
@@ -19,7 +20,9 @@ import 'theme/app_theme.dart';
 import 'services/encryption_service.dart';
 import 'services/storage_service.dart';
 import 'services/export_service.dart';
+import 'services/import_service.dart';
 import 'services/clipboard_service.dart';
+import 'services/biometric_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,12 +50,14 @@ void main() async {
   final encryptionService = EncryptionService();
   final exportService = ExportService(storageService, encryptionService);
   final clipboardService = ClipboardService();
+  final biometricService = BiometricService();
 
   runApp(MyApp(
     storageService: storageService,
     encryptionService: encryptionService,
     exportService: exportService,
     clipboardService: clipboardService,
+    biometricService: biometricService,
   ));
 }
 
@@ -61,6 +66,7 @@ class MyApp extends StatelessWidget {
   final EncryptionService encryptionService;
   final ExportService exportService;
   final ClipboardService clipboardService;
+  final BiometricService biometricService;
 
   const MyApp({
     super.key,
@@ -68,6 +74,7 @@ class MyApp extends StatelessWidget {
     required this.encryptionService,
     required this.exportService,
     required this.clipboardService,
+    required this.biometricService,
   });
 
   @override
@@ -78,12 +85,13 @@ class MyApp extends StatelessWidget {
         RepositoryProvider.value(value: encryptionService),
         RepositoryProvider.value(value: exportService),
         RepositoryProvider.value(value: clipboardService),
+        RepositoryProvider.value(value: biometricService),
       ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<AuthBloc>(
             create: (context) =>
-                AuthBloc(storageService, encryptionService)..add(CheckLockStatus()),
+                AuthBloc(storageService, encryptionService, biometricService)..add(CheckLockStatus()),
           ),
           BlocProvider<ProjectBloc>(
             create: (context) => ProjectBloc(storageService),
@@ -99,6 +107,9 @@ class MyApp extends StatelessWidget {
               final auditBloc = context.read<AuditBloc>();
               return SecretBloc(storageService, encryptionService, auditBloc, clipboardService);
             },
+          ),
+          BlocProvider<ImportBloc>(
+            create: (context) => ImportBloc(ImportService(storageService, encryptionService)),
           ),
           BlocProvider<SettingsBloc>(
             create: (context) {

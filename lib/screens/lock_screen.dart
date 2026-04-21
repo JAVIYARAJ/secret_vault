@@ -7,6 +7,9 @@ import '../blocs/auth/auth_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import 'home_screen.dart';
+import '../blocs/settings/settings_bloc.dart';
+import '../blocs/settings/settings_state.dart';
+import '../services/biometric_service.dart';
 
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key});
@@ -22,6 +25,7 @@ class _LockScreenState extends State<LockScreen>
   late AnimationController _animCtrl;
   late Animation<double> _fadeIn;
   late Animation<Offset> _slideUp;
+  bool _didTryBiometrics = false;
 
   @override
   void initState() {
@@ -52,13 +56,46 @@ class _LockScreenState extends State<LockScreen>
     }
   }
 
+  Future<void> _attemptBiometricUnlock() async {
+    if (!mounted) return;
+    final biometricService = context.read<BiometricService>();
+    if (await biometricService.isBiometricAvailable()) {
+      final success = await biometricService.authenticate();
+      if (success && mounted) {
+        final pwd = await biometricService.getStoredMasterPassword();
+        if (pwd != null && pwd.isNotEmpty) {
+          context.read<AuthBloc>().add(UnlockVault(pwd));
+        } else {
+          AppToast.show(context, message: 'No stored master password for biometrics. Please login normally once.', type: ToastType.error);
+        }
+      }
+    } else {
+       AppToast.show(context, message: 'Biometrics not available or not configured on this device.', type: ToastType.error);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<SettingsBloc, SettingsState>(
+          listener: (context, state) {
+            if (state is SettingsLoaded && state.useBiometrics && !_didTryBiometrics) {
+              _didTryBiometrics = true;
+              
+              // Only auto-prompt if it's already a created vault (AuthLocked with master password)
+              final authState = context.read<AuthBloc>().state;
+              if (authState is AuthLocked && authState.hasMasterPassword) {
+                 _attemptBiometricUnlock();
+              }
+            }
+          },
+        ),
+        BlocListener<AuthBloc, AuthState>(
+          listener: (context, state) {
         if (state is AuthUnlocked) {
           AppToast.show(
             context,
@@ -81,8 +118,10 @@ class _LockScreenState extends State<LockScreen>
           );
         }
       },
-      child: Scaffold(
-        backgroundColor: colors.background,
+    ),
+  ],
+  child: Scaffold(
+    backgroundColor: colors.background,
         body: Stack(
           children: [
             // Background glow orbs
@@ -112,6 +151,9 @@ class _LockScreenState extends State<LockScreen>
                         final hasMasterPassword = state is AuthLocked
                             ? state.hasMasterPassword
                             : true;
+                            
+                        final settingsState = context.watch<SettingsBloc>().state;
+                        final showBiometricBtn = hasMasterPassword && settingsState is SettingsLoaded && settingsState.useBiometrics;
 
                         return ClipRRect(
                           borderRadius: BorderRadius.circular(24),
@@ -209,41 +251,66 @@ class _LockScreenState extends State<LockScreen>
                                   ),
                                   const SizedBox(height: 24),
                                   // CTA button
-                                  SizedBox(
-                                    width: double.infinity,
-                                    height: 52,
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [colors.accent, const Color(0xFF9C27B0)],
-                                          begin: Alignment.centerLeft,
-                                          end: Alignment.centerRight,
-                                        ),
-                                        borderRadius: BorderRadius.circular(14),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: colors.accentGlow,
-                                            blurRadius: 20,
-                                            offset: const Offset(0, 6),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: SizedBox(
+                                          height: 52,
+                                          child: DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [colors.accent, const Color(0xFF9C27B0)],
+                                                begin: Alignment.centerLeft,
+                                                end: Alignment.centerRight,
+                                              ),
+                                              borderRadius: BorderRadius.circular(14),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: colors.accentGlow,
+                                                  blurRadius: 20,
+                                                  offset: const Offset(0, 6),
+                                                ),
+                                              ],
+                                            ),
+                                            child: FilledButton(
+                                              style: FilledButton.styleFrom(
+                                                backgroundColor: Colors.transparent,
+                                                shadowColor: Colors.transparent,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(14),
+                                                ),
+                                              ),
+                                              onPressed: () => _submit(hasMasterPassword),
+                                              child: Text(
+                                                hasMasterPassword ? 'Unlock Vault' : 'Create & Unlock',
+                                                style: const TextStyle(
+                                                    fontSize: 16, fontWeight: FontWeight.w600),
+                                              ),
+                                            ),
                                           ),
-                                        ],
+                                        ),
                                       ),
-                                      child: FilledButton(
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor: Colors.transparent,
-                                          shadowColor: Colors.transparent,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(14),
+                                      if (showBiometricBtn) ...[
+                                        const SizedBox(width: 16),
+                                        SizedBox(
+                                          width: 52,
+                                          height: 52,
+                                          child: DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              color: colors.card,
+                                              borderRadius: BorderRadius.circular(14),
+                                              border: Border.all(color: colors.border),
+                                            ),
+                                            child: IconButton(
+                                              icon: const Icon(Icons.fingerprint_rounded, size: 28),
+                                              color: colors.accent,
+                                              onPressed: _attemptBiometricUnlock,
+                                              tooltip: 'Unlock with Biometrics',
+                                            ),
                                           ),
                                         ),
-                                        onPressed: () => _submit(hasMasterPassword),
-                                        child: Text(
-                                          hasMasterPassword ? 'Unlock Vault' : 'Create & Unlock',
-                                          style: const TextStyle(
-                                              fontSize: 16, fontWeight: FontWeight.w600),
-                                        ),
-                                      ),
-                                    ),
+                                      ]
+                                    ],
                                   ),
                                 ],
                               ),

@@ -2,16 +2,18 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../services/storage_service.dart';
 import '../../services/encryption_service.dart';
+import '../../services/biometric_service.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final StorageService _storageService;
   final EncryptionService _encryptionService;
+  final BiometricService _biometricService;
   Timer? _lockTimer;
   int _autoLockMinutes = 15; // Setup through settings later
 
-  AuthBloc(this._storageService, this._encryptionService) : super(AuthInitial()) {
+  AuthBloc(this._storageService, this._encryptionService, this._biometricService) : super(AuthInitial()) {
     on<CheckLockStatus>(_onCheckLockStatus);
     on<SetMasterPassword>(_onSetMasterPassword);
     on<UnlockVault>(_onUnlockVault);
@@ -65,6 +67,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       await _storageService.saveMasterPasswordHash(hash);
       
       _encryptionService.initialize(event.password);
+      await _biometricService.saveMasterPassword(event.password); // Securely cache for biometrics
+      
       emit(AuthUnlocked());
       _startLockTimer();
     } catch (e) {
@@ -79,6 +83,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       if (storedHash == inputHash) {
         _encryptionService.initialize(event.password);
+        await _biometricService.saveMasterPassword(event.password); // Securely cache for biometrics
+        
         emit(AuthUnlocked());
         _startLockTimer();
       } else {

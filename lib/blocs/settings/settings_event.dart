@@ -46,3 +46,5 @@ class SetClipboardClearDuration extends SettingsEvent {
   @override
   List<Object?> get props => [seconds];
 }
+
+class ToggleBiometrics extends SettingsEvent {}

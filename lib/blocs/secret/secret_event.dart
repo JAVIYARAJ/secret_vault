@@ -159,3 +159,5 @@ class ToggleFavourite extends SecretEvent {
   @override
   List<Object?> get props => [secretId];
 }
+
+class ClearSecrets extends SecretEvent {}

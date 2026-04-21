@@ -41,6 +41,18 @@ class SecretBloc extends Bloc<SecretEvent, SecretState> {
     on<ReorderSecrets>(_onReorderSecrets);
     on<MoveSecretToProject>(_onMoveSecretToProject);
     on<ToggleFavourite>(_onToggleFavourite);
+    on<ClearSecrets>(_onClearSecrets);
+  }
+
+  void _onClearSecrets(ClearSecrets event, Emitter<SecretState> emit) {
+    _currentProjectId = null;
+    _allProjectSecrets = [];
+    emit(const SecretLoaded(
+      secrets: [],
+      typeCounts: {},
+      expandedId: null,
+      expansionNonce: 0,
+    ));
   }
 
   Future<void> _onToggleFavourite(ToggleFavourite event, Emitter<SecretState> emit) async {

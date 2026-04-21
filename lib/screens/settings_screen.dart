@@ -5,6 +5,8 @@ import '../blocs/settings/settings_event.dart';
 import '../blocs/settings/settings_state.dart';
 import '../blocs/project/project_bloc.dart';
 import '../blocs/project/project_state.dart';
+import '../blocs/import/import_bloc.dart';
+import '../widgets/import_dialog.dart';
 import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -139,6 +141,24 @@ class SettingsScreen extends StatelessWidget {
                           ),
                           colors: colors,
                         ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Divider(height: 1, color: colors.border),
+                        ),
+                        _SettingsRow(
+                          icon: Icons.fingerprint_rounded,
+                          iconColor: const Color(0xFF673AB7),
+                          title: 'Biometric Unlock',
+                          subtitle: 'Use Touch ID to unlock your vault',
+                          trailing: Switch(
+                            value: state.useBiometrics,
+                            onChanged: (_) =>
+                                context.read<SettingsBloc>().add(ToggleBiometrics()),
+                            activeThumbColor: colors.accent,
+                            activeTrackColor: colors.accent.withValues(alpha: 0.5),
+                          ),
+                          colors: colors,
+                        ),
                       ],
                     ),
 
@@ -181,6 +201,32 @@ class SettingsScreen extends StatelessWidget {
                                   : () => context.read<SettingsBloc>().add(
                                         ExportProjectEvent(selectedProjectId),
                                       ),
+                            ),
+                            colors: colors,
+                          ),
+                          _SettingsRow(
+                            icon: Icons.download_for_offline_outlined,
+                            iconColor: const Color(0xFF2196F3),
+                            title: 'Import Secrets',
+                            subtitle: 'LastPass, Bitwarden or 1Password CSV',
+                            trailing: FilledButton.icon(
+                              icon: const Icon(Icons.upload_rounded, size: 16),
+                              label: const Text('Import'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF2196F3),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                textStyle: const TextStyle(
+                                    fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                              onPressed: () => showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (_) => BlocProvider.value(
+                                  value: context.read<ImportBloc>(),
+                                  child: const ImportDialog(),
+                                ),
+                              ),
                             ),
                             colors: colors,
                           ),
@@ -375,9 +421,14 @@ class _StyledDropdown extends StatelessWidget {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
           value: value,
+          dropdownColor: colors.surface,
           borderRadius: BorderRadius.circular(12),
           isDense: true,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           items: items.entries
               .map((e) => DropdownMenuItem(
                     value: e.key,
