@@ -9,6 +9,9 @@ class ProjectTile extends StatefulWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final bool isDragHovered;
+  final bool hasChildren;
+  final bool isExpanded;
+  final VoidCallback? onToggleExpand;
 
   const ProjectTile({
     super.key,
@@ -18,6 +21,9 @@ class ProjectTile extends StatefulWidget {
     this.onEdit,
     this.onDelete,
     this.isDragHovered = false,
+    this.hasChildren = false,
+    this.isExpanded = true,
+    this.onToggleExpand,
   });
 
   @override
@@ -48,7 +54,7 @@ class _ProjectTileState extends State<ProjectTile> {
             }
           },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 400),
               curve: Curves.easeOutQuart,
@@ -82,27 +88,44 @@ class _ProjectTileState extends State<ProjectTile> {
                     hoverColor: Colors.transparent,
                     splashColor: projectColor.withValues(alpha: 0.1),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const NeverScrollableScrollPhysics(),
                       child: Row(
                         children: [
+                          if (widget.hasChildren)
+                            AnimatedRotation(
+                              duration: const Duration(milliseconds: 200),
+                              turns: widget.isExpanded ? 0.25 : 0,
+                              child: Icon(
+                                Icons.chevron_right_rounded,
+                                size: 18,
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                              ),
+                            )
+                          else
+                            const SizedBox(width: 18),
+                          const SizedBox(width: 8),
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 400),
-                            width: widget.isSelected ? 14 : 10,
-                            height: widget.isSelected ? 14 : 10,
+                            width: widget.isSelected ? 12 : 8,
+                            height: widget.isSelected ? 12 : 8,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: projectColor,
                               boxShadow: [
                                 BoxShadow(
-                                  color: projectColor.withValues(alpha: 0.8),
-                                  blurRadius: widget.isSelected ? 16 : 0,
-                                  spreadRadius: widget.isSelected ? 2 : 0,
+                                  color: projectColor.withValues(alpha: 0.6),
+                                  blurRadius: widget.isSelected ? 12 : 0,
+                                  spreadRadius: widget.isSelected ? 1 : 0,
                                 )
                               ],
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 180, // Target width for the text area
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -110,23 +133,23 @@ class _ProjectTileState extends State<ProjectTile> {
                                   widget.project.name,
                                   style: TextStyle(
                                     fontWeight: widget.isSelected ? FontWeight.w800 : FontWeight.w600,
-                                    fontSize: 15,
-                                    letterSpacing: -0.3,
+                                    fontSize: 14,
+                                    letterSpacing: -0.2,
                                     color: widget.isSelected 
                                         ? (isDark ? Colors.white : projectColor)
-                                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 if (widget.project.description != null && widget.project.description!.isNotEmpty)
                                   Padding(
-                                    padding: const EdgeInsets.only(top: 4),
+                                    padding: const EdgeInsets.only(top: 2),
                                     child: Text(
                                       widget.project.description!,
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 10,
                                         fontWeight: FontWeight.w400,
-                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                       maxLines: 1,
@@ -135,12 +158,15 @@ class _ProjectTileState extends State<ProjectTile> {
                               ],
                             ),
                           ),
-                          if (widget.isSelected) 
+                          if (widget.isSelected) ...[
+                            const SizedBox(width: 12),
                             Icon(Icons.arrow_forward_ios_rounded, 
                                 color: (isDark ? Colors.white : projectColor).withValues(alpha: 0.4), 
                                 size: 10),
+                          ],
                         ],
                       ),
+                    ),
                     ),
                   ),
                 ),

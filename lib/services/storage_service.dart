@@ -16,7 +16,7 @@ class StorageService {
   // On next launch, the old secrets box will be deleted automatically.
   // Increment these constants whenever models change.
   static const int _currentSecretsSchemaVersion = 4;
-  static const int _currentProjectsSchemaVersion = 1;
+  static const int _currentProjectsSchemaVersion = 2;
   static const String _secretsSchemaVersionKey = 'secrets_schema_version';
   static const String _projectsSchemaVersionKey = 'projects_schema_version';
 
@@ -114,6 +114,12 @@ class StorageService {
       if (cmp != 0) return cmp;
       return b.createdAt.compareTo(a.createdAt);
     });
+    return secrets;
+  }
+
+  List<Secret> getAllSecrets() {
+    final secrets = secretsBox.values.toList();
+    secrets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return secrets;
   }
 }

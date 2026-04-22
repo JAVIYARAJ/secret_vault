@@ -31,7 +31,7 @@ class ProjectBloc extends Bloc<ProjectEvent, ProjectState> {
       // Persist new ordering only for changed items
       for (int i = 0; i < projects.length; i++) {
         if (projects[i].sortOrder != i) {
-          projects[i].sortOrder = i;
+          projects[i] = projects[i].copyWith(sortOrder: i);
           await _storageService.saveProject(projects[i]);
         }
       }
@@ -75,6 +75,7 @@ class ProjectBloc extends Bloc<ProjectEvent, ProjectState> {
         description: event.description,
         createdAt: DateTime.now(),
         color: event.color,
+        parentId: event.parentId,
       );
       await _storageService.saveProject(newProject);
       
@@ -106,7 +107,7 @@ class ProjectBloc extends Bloc<ProjectEvent, ProjectState> {
     final currentState = state;
     if (currentState is ProjectLoaded) {
       try {
-        await _storageService.deleteProject(event.id);
+        await _deleteProjectRecursive(event.id, currentState.projects);
         final projects = _storageService.getProjects();
         String? selectedId = currentState.selectedProjectId == event.id 
             ? (projects.isNotEmpty ? projects.first.id : null) 
@@ -117,6 +118,16 @@ class ProjectBloc extends Bloc<ProjectEvent, ProjectState> {
         emit(ProjectError('Failed to delete project: ${e.toString()}'));
       }
     }
+  }
+
+  Future<void> _deleteProjectRecursive(String projectId, List<Project> allProjects) async {
+    // Find sub-projects
+    final subProjects = allProjects.where((p) => p.parentId == projectId).toList();
+    for (final sub in subProjects) {
+      await _deleteProjectRecursive(sub.id, allProjects);
+    }
+    // Delete the project itself
+    await _storageService.deleteProject(projectId);
   }
 
   void _onSelectProject(SelectProject event, Emitter<ProjectState> emit) {

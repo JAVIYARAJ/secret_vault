@@ -28,7 +28,6 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<SetClipboardClearDuration>(_onSetClipboardClearDuration);
     on<ExportProjectEvent>(_onExportProject);
     on<ImportEnvFile>(_onImportEnvFile);
-    on<ToggleBiometrics>(_onToggleBiometrics);
   }
 
   void _onLoadSettings(LoadSettings event, Emitter<SettingsState> emit) {
@@ -36,7 +35,6 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       final isDarkMode = _storageService.settingsBox.get('isDarkMode', defaultValue: true);
       final autoLockMinutes = _storageService.settingsBox.get('autoLockMinutes', defaultValue: 15);
       final clipboardSeconds = _storageService.settingsBox.get('clipboardClearSeconds', defaultValue: 30);
-      final useBiometrics = _storageService.settingsBox.get('useBiometrics', defaultValue: false);
       
       _authBloc.setAutoLockMinutes(autoLockMinutes);
       _clipboardService.updateDuration(Duration(seconds: clipboardSeconds));
@@ -45,7 +43,6 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         isDarkMode: isDarkMode,
         autoLockMinutes: autoLockMinutes,
         clipboardClearSeconds: clipboardSeconds,
-        useBiometrics: useBiometrics,
       ));
     } catch (e) {
       emit(SettingsError('Failed to load settings: $e'));
@@ -73,14 +70,6 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     }
   }
 
-  void _onToggleBiometrics(ToggleBiometrics event, Emitter<SettingsState> emit) async {
-    if (state is SettingsLoaded) {
-      final currentState = state as SettingsLoaded;
-      final newValue = !currentState.useBiometrics;
-      await _storageService.settingsBox.put('useBiometrics', newValue);
-      emit(currentState.copyWith(useBiometrics: newValue));
-    }
-  }
 
   void _onSetAutoLockDuration(SetAutoLockDuration event, Emitter<SettingsState> emit) async {
     if (state is SettingsLoaded) {

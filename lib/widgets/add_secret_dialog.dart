@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 import '../models/secret.dart';
 import '../services/encryption_service.dart';
+import '../services/tag_service.dart';
 import '../theme/app_theme.dart';
 
 class AddSecretDialog extends StatefulWidget {
@@ -32,6 +33,9 @@ class _AddSecretDialogState extends State<AddSecretDialog> {
   @override
   void initState() {
     super.initState();
+    _titleController.addListener(() => setState(() {}));
+    _noteController.addListener(() => setState(() {}));
+    
     if (widget.secretToEdit != null) {
       _currentStep = 1;
       _selectedType = widget.secretToEdit!.type;
@@ -49,7 +53,9 @@ class _AddSecretDialogState extends State<AddSecretDialog> {
         } catch (_) {}
         final fieldCopy = f.copyWith(encryptedValue: decrypted);
         _fields.add(fieldCopy);
-        _fieldControllers[f.id] = TextEditingController(text: decrypted);
+        final ctrl = TextEditingController(text: decrypted);
+        ctrl.addListener(() => setState(() {}));
+        _fieldControllers[f.id] = ctrl;
         _obscureTextMap[f.id] = f.isSecret;
       }
     }
@@ -71,7 +77,9 @@ class _AddSecretDialogState extends State<AddSecretDialog> {
       _selectedType = type;
       _fields = SecretTemplates.getTemplate(type);
       for (var f in _fields) {
-        _fieldControllers[f.id] = TextEditingController();
+        final ctrl = TextEditingController();
+        ctrl.addListener(() => setState(() {}));
+        _fieldControllers[f.id] = ctrl;
         _obscureTextMap[f.id] = f.isSecret;
       }
       _currentStep = 1;
@@ -88,7 +96,9 @@ class _AddSecretDialogState extends State<AddSecretDialog> {
     );
     setState(() {
       _fields.add(newField);
-      _fieldControllers[id] = TextEditingController();
+      final ctrl = TextEditingController();
+      ctrl.addListener(() => setState(() {}));
+      _fieldControllers[id] = ctrl;
       _obscureTextMap[id] = false;
     });
   }
@@ -391,8 +401,114 @@ class _AddSecretDialogState extends State<AddSecretDialog> {
               minLines: 2,
             ),
             const SizedBox(height: 20),
+            
+            // Auto-suggested Tags
+            Builder(
+              builder: (context) {
+                final tagService = context.read<TagService>();
+                final suggestions = tagService.suggestTags(
+                  title: _titleController.text,
+                  note: _noteController.text,
+                  fields: _fields.map((f) => f.copyWith(
+                    encryptedValue: _fieldControllers[f.id]?.text ?? '',
+                  )).toList(),
+                  existingTags: _tagsController.text.split(',').map((e) => e.trim()).toList(),
+                );
+
+                if (suggestions.isEmpty) return const SizedBox();
+
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: colors.accent.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colors.accent.withValues(alpha: 0.15)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, size: 14, color: colors.accent),
+                          const SizedBox(width: 8),
+                          Text(
+                            'SUGGESTED TAGS',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.0,
+                              color: colors.accent.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: suggestions.map((tag) {
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  final current = _tagsController.text.trim();
+                                  if (current.isEmpty) {
+                                    _tagsController.text = tag;
+                                  } else {
+                                    final tagsList = current.split(',').map((e) => e.trim()).toList();
+                                    if (!tagsList.contains(tag)) {
+                                      _tagsController.text = '$current, $tag';
+                                    }
+                                  }
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: colors.accent.withValues(alpha: 0.2)),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.05),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    )
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add_rounded, size: 14, color: colors.accent),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      tag,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            ),
+
             TextFormField(
               controller: _tagsController,
+              onChanged: (_) => setState(() {}), // Trigger suggestion update
               decoration: inputDecoration.copyWith(
                 labelText: 'Tags (comma separated)',
                 hintText: 'e.g. work, prod, server',
@@ -531,10 +647,11 @@ class _AddSecretDialogState extends State<AddSecretDialog> {
                             FilledButton.icon(
                               onPressed: () {
                                 if (_formKey.currentState!.validate()) {
-                                  List<String>? tags;
-                                  if (_tagsController.text.isNotEmpty) {
-                                    tags = _tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-                                  }
+                                  final tags = _tagsController.text
+                                      .split(',')
+                                      .map((e) => e.trim())
+                                      .where((e) => e.isNotEmpty)
+                                      .toList();
                                   
                                   final finalFields = _fields.map((f) => f.copyWith(
                                     encryptedValue: _fieldControllers[f.id]?.text ?? '',

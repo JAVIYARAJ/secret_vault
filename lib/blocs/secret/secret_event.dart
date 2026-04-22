@@ -9,7 +9,7 @@ abstract class SecretEvent extends Equatable {
 }
 
 class LoadSecrets extends SecretEvent {
-  final String projectId;
+  final String? projectId;
   final String? initialExpandedId;
 
   const LoadSecrets(this.projectId, {this.initialExpandedId});

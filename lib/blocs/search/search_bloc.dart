@@ -11,7 +11,9 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     on<ClearSearch>((_, emit) => emit(SearchEmpty()));
     on<SelectNextResult>(_onNext);
     on<SelectPrevResult>(_onPrev);
+    on<SelectResult>(_onSelect);
   }
+
 
   Future<void> _onSearch(RunSearch e, Emitter<SearchState> emit) async {
     final q = e.query.toLowerCase().trim();
@@ -82,4 +84,15 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
       emit(s.copyWith(selectedIndex: prev));
     }
   }
+
+
+  void _onSelect(SelectResult e, Emitter<SearchState> emit) {
+    if (state is SearchLoaded) {
+      final s = state as SearchLoaded;
+      if (e.index >= 0 && e.index < s.results.length) {
+        emit(s.copyWith(selectedIndex: e.index));
+      }
+    }
+  }
 }
+

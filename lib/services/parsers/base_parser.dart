@@ -1,5 +1,4 @@
 import '../../models/secret.dart';
-import 'package:uuid/uuid.dart';
 
 /// A parsed row before it becomes a Secret.
 /// Keeps plaintext values until EncryptionService encrypts them on import.
@@ -38,7 +37,6 @@ class ImportedField {
 }
 
 abstract class BaseParser {
-  static const _uuid = Uuid();
 
   /// Parse raw CSV string into ImportedSecret list.
   List<ImportedSecret> parse(String csvContent);

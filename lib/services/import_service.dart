@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
-import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import '../models/project.dart';
 import '../models/secret.dart';

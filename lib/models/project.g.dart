@@ -23,13 +23,14 @@ class ProjectAdapter extends TypeAdapter<Project> {
       createdAt: fields[3] as DateTime,
       color: fields[4] as int,
       sortOrder: fields[5] as int,
+      parentId: fields[6] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Project obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class ProjectAdapter extends TypeAdapter<Project> {
       ..writeByte(4)
       ..write(obj.color)
       ..writeByte(5)
-      ..write(obj.sortOrder);
+      ..write(obj.sortOrder)
+      ..writeByte(6)
+      ..write(obj.parentId);
   }
 
   @override

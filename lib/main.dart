@@ -22,7 +22,7 @@ import 'services/storage_service.dart';
 import 'services/export_service.dart';
 import 'services/import_service.dart';
 import 'services/clipboard_service.dart';
-import 'services/biometric_service.dart';
+import 'services/tag_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,14 +50,14 @@ void main() async {
   final encryptionService = EncryptionService();
   final exportService = ExportService(storageService, encryptionService);
   final clipboardService = ClipboardService();
-  final biometricService = BiometricService();
+  final tagService = TagService();
 
   runApp(MyApp(
     storageService: storageService,
     encryptionService: encryptionService,
     exportService: exportService,
     clipboardService: clipboardService,
-    biometricService: biometricService,
+    tagService: tagService,
   ));
 }
 
@@ -66,7 +66,7 @@ class MyApp extends StatelessWidget {
   final EncryptionService encryptionService;
   final ExportService exportService;
   final ClipboardService clipboardService;
-  final BiometricService biometricService;
+  final TagService tagService;
 
   const MyApp({
     super.key,
@@ -74,7 +74,7 @@ class MyApp extends StatelessWidget {
     required this.encryptionService,
     required this.exportService,
     required this.clipboardService,
-    required this.biometricService,
+    required this.tagService,
   });
 
   @override
@@ -85,13 +85,13 @@ class MyApp extends StatelessWidget {
         RepositoryProvider.value(value: encryptionService),
         RepositoryProvider.value(value: exportService),
         RepositoryProvider.value(value: clipboardService),
-        RepositoryProvider.value(value: biometricService),
+        RepositoryProvider.value(value: tagService),
       ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<AuthBloc>(
             create: (context) =>
-                AuthBloc(storageService, encryptionService, biometricService)..add(CheckLockStatus()),
+                AuthBloc(storageService, encryptionService)..add(CheckLockStatus()),
           ),
           BlocProvider<ProjectBloc>(
             create: (context) => ProjectBloc(storageService),

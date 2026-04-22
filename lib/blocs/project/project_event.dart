@@ -14,11 +14,12 @@ class AddProject extends ProjectEvent {
   final String name;
   final String? description;
   final int color;
+  final String? parentId;
 
-  const AddProject(this.name, this.description, this.color);
+  const AddProject(this.name, this.description, this.color, {this.parentId});
 
   @override
-  List<Object?> get props => [name, description, color];
+  List<Object?> get props => [name, description, color, parentId];
 }
 
 class UpdateProject extends ProjectEvent {
@@ -40,7 +41,7 @@ class DeleteProject extends ProjectEvent {
 }
 
 class SelectProject extends ProjectEvent {
-  final String id;
+  final String? id;
   final String? targetSecretId;
 
   const SelectProject(this.id, {this.targetSecretId});

@@ -22,6 +22,9 @@ class Project extends HiveObject {
   @HiveField(5)
   int sortOrder;
 
+  @HiveField(6)
+  final String? parentId;
+
   Project({
     required this.id,
     required this.name,
@@ -29,5 +32,27 @@ class Project extends HiveObject {
     required this.createdAt,
     required this.color,
     this.sortOrder = 0,
+    this.parentId,
   });
+
+  Project copyWith({
+    String? id,
+    String? name,
+    String? description,
+    DateTime? createdAt,
+    int? color,
+    int? sortOrder,
+    String? parentId,
+  }) {
+    final newProject = Project(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      createdAt: createdAt ?? this.createdAt,
+      color: color ?? this.color,
+      sortOrder: sortOrder ?? this.sortOrder,
+      parentId: parentId ?? this.parentId,
+    );
+    return newProject;
+  }
 }

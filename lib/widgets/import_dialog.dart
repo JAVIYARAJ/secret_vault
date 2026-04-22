@@ -331,7 +331,7 @@ class _ImportDialogState extends State<ImportDialog> {
                   const SizedBox(width: 8),
                   Switch(
                     value: _groupByFolder,
-                    activeColor: colors.accent,
+                    activeThumbColor: colors.accent,
                     onChanged: (v) => setState(() => _groupByFolder = v),
                   ),
                 ],
@@ -538,7 +538,6 @@ class _SourceCardState extends State<_SourceCard> {
           curve: Curves.easeOutCirc,
           width: widget.width,
           padding: const EdgeInsets.all(20),
-          transform: Matrix4.identity()..translate(0.0, _isHovered && widget.onTap != null ? -4.0 : 0.0),
           decoration: BoxDecoration(
             color: widget.isDark ? widget.colors.surface : Colors.white,
             gradient: _isHovered && widget.onTap != null
@@ -553,8 +552,8 @@ class _SourceCardState extends State<_SourceCard> {
                 : null,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: _isHovered && widget.onTap != null ? widget.color.withValues(alpha: 0.5) : widget.colors.border,
-              width: _isHovered && widget.onTap != null ? 2 : 1,
+              color: _isHovered && widget.onTap != null ? widget.color.withValues(alpha: 0.6) : widget.colors.border,
+              width: 1.5,
             ),
             boxShadow: _isHovered && widget.onTap != null
                 ? [
@@ -570,14 +569,14 @@ class _SourceCardState extends State<_SourceCard> {
             children: [
                AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
-                padding: EdgeInsets.all(_isHovered ? 12 : 10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: widget.color.withValues(alpha: _isHovered ? 0.2 : 0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   widget.icon,
-                  size: _isHovered ? 28 : 24,
+                  size: 26,
                   color: widget.color,
                 ),
               ),

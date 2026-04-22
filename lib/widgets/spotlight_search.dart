@@ -21,28 +21,61 @@ class SpotlightSearch extends StatefulWidget {
 
 class _SpotlightSearchState extends State<SpotlightSearch> with SingleTickerProviderStateMixin {
   final _ctrl = TextEditingController();
-  final _focus = FocusNode();
+  final _focus = FocusNode();           // text field focus
+  final _keyboardFocus = FocusNode();   // KeyboardListener focus
+  final _scrollCtrl = ScrollController();
   late AnimationController _anim;
   late Animation<double> _scale;
   late Animation<double> _opacity;
 
+  static const double _itemHeight = 60.0; // approximate height of each result tile
+
   @override
   void initState() {
     super.initState();
+    // Clear previous search results for a fresh start
+    context.read<SearchBloc>().add(ClearSearch());
+    
     _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
     _scale = CurvedAnimation(parent: _anim, curve: Curves.easeOutBack);
     _opacity = CurvedAnimation(parent: _anim, curve: Curves.easeOut);
     _anim.forward();
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focus.requestFocus());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _keyboardFocus.requestFocus(); // keyboard listener must be focused first
+      _focus.requestFocus();         // then hand focus to the text field
+    });
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
     _focus.dispose();
+    _keyboardFocus.dispose();
+    _scrollCtrl.dispose();
     _anim.dispose();
     super.dispose();
+  }
+
+  /// Scroll the list so the item at [index] is visible.
+  void _scrollToIndex(int index) {
+    if (!_scrollCtrl.hasClients) return;
+    final target = index * _itemHeight;
+    final viewStart = _scrollCtrl.offset;
+    final viewEnd = viewStart + _scrollCtrl.position.viewportDimension;
+    if (target < viewStart) {
+      _scrollCtrl.animateTo(
+        target,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+      );
+    } else if (target + _itemHeight > viewEnd) {
+      _scrollCtrl.animateTo(
+        target + _itemHeight - _scrollCtrl.position.viewportDimension,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   void _onEnter(BuildContext context, SearchLoaded state) {
@@ -53,12 +86,6 @@ class _SpotlightSearchState extends State<SpotlightSearch> with SingleTickerProv
     context.read<ProjectBloc>().add(
           SelectProject(res.project.id, targetSecretId: res.secret.id),
         );
-    
-    // Also copy the first field for extra speed
-    final firstField = res.secret.fields.isNotEmpty ? res.secret.fields.first : null;
-    if (firstField != null) {
-      context.read<SecretBloc>().add(CopyField(res.secret.id, firstField.id));
-    }
     
     widget.onClose();
   }
@@ -111,13 +138,22 @@ class _SpotlightSearchState extends State<SpotlightSearch> with SingleTickerProv
                     ],
                   ),
                   child: KeyboardListener(
-                    focusNode: FocusNode(),
+                    focusNode: _keyboardFocus,
                     onKeyEvent: (event) {
-                      if (event is KeyDownEvent) {
+                      if (event is KeyDownEvent || event is KeyRepeatEvent) {
                         if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
                           context.read<SearchBloc>().add(SelectNextResult());
+                          final s = context.read<SearchBloc>().state;
+                          if (s is SearchLoaded) {
+                            _scrollToIndex((s.selectedIndex + 1) % s.results.length);
+                          }
                         } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
                           context.read<SearchBloc>().add(SelectPrevResult());
+                          final s = context.read<SearchBloc>().state;
+                          if (s is SearchLoaded) {
+                            final prev = (s.selectedIndex - 1 + s.results.length) % s.results.length;
+                            _scrollToIndex(prev);
+                          }
                         } else if (event.logicalKey == LogicalKeyboardKey.escape) {
                           widget.onClose();
                         } else if (event.logicalKey == LogicalKeyboardKey.enter) {
@@ -163,6 +199,7 @@ class _SpotlightSearchState extends State<SpotlightSearch> with SingleTickerProv
                                   return _buildEmptyState('No matching secrets found.');
                                 }
                                 return ListView.builder(
+                                  controller: _scrollCtrl,
                                   shrinkWrap: true,
                                   padding: const EdgeInsets.symmetric(vertical: 8),
                                   itemCount: state.results.length,
@@ -173,7 +210,14 @@ class _SpotlightSearchState extends State<SpotlightSearch> with SingleTickerProv
                                       result: r,
                                       isSelected: isSelected,
                                       colors: colors,
-                                      onTap: () => _onEnter(context, state),
+                                      onTap: () {
+                                        // Select this item then open it
+                                        if (!isSelected) {
+                                          context.read<SearchBloc>().add(SelectResult(i));
+                                        }
+                                        _onEnter(context, state.copyWith(selectedIndex: i));
+                                      },
+
                                     );
                                   },
                                 );

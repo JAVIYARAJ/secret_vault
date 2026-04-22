@@ -16,3 +16,11 @@ class RunSearch extends SearchEvent {
 class ClearSearch extends SearchEvent {}
 class SelectNextResult extends SearchEvent {}
 class SelectPrevResult extends SearchEvent {}
+
+class SelectResult extends SearchEvent {
+  final int index;
+  const SelectResult(this.index);
+  @override
+  List<Object?> get props => [index];
+}
+

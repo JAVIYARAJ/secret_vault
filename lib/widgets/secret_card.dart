@@ -62,22 +62,27 @@ class _SecretCardState extends State<SecretCard> {
   }
 
   void _forceExpand() {
-    Future.delayed(const Duration(milliseconds: 150), () {
+    // Small delay to ensure ExpansionTile state is ready
+    Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
         _expansionController.expand();
+        setState(() => _isExpanded = true);
       }
     });
   }
 
   void _scrollToMe() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Scrollable.ensureVisible(
-          context,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOut,
-        );
-      }
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted) {
+          Scrollable.ensureVisible(
+            context,
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutQuart,
+            alignment: 0.2, // Scroll so it's near the top
+          );
+        }
+      });
     });
   }
 
@@ -154,11 +159,7 @@ class _SecretCardState extends State<SecretCard> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedScale(
-        scale: _isHovered ? 1.015 : 1.0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutBack,
-        child: AnimatedContainer(
+      child: AnimatedContainer(
           duration: const Duration(milliseconds: 400),
           curve: Curves.easeOutQuart,
           margin: const EdgeInsets.only(bottom: 16),
@@ -498,7 +499,6 @@ class _SecretCardState extends State<SecretCard> {
             ),
           ),
         ),
-      ),
     );
   }
 }

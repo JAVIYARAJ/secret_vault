@@ -103,20 +103,28 @@ class SecretBloc extends Bloc<SecretEvent, SecretState> {
       final newAllIndex = _allProjectSecrets.indexWhere((s) => s.id == targetSecret.id);
 
       if (oldAllIndex != -1 && newAllIndex != -1) {
-        final s = _allProjectSecrets.removeAt(oldAllIndex);
-        _allProjectSecrets.insert(newAllIndex, s);
+        // Create a new list for mutation to avoid side-effects in current state
+        final newList = List<Secret>.from(_allProjectSecrets);
+        final s = newList.removeAt(oldAllIndex);
+        newList.insert(newAllIndex, s);
         
         // 4. Update sort orders for persistence based on the NEW full list order
-        for (int i = 0; i < _allProjectSecrets.length; i++) {
-           if (_allProjectSecrets[i].sortOrder != i) {
-             _allProjectSecrets[i] = _allProjectSecrets[i].copyWith(sortOrder: i);
-             _storageService.saveSecret(_allProjectSecrets[i]);
+        for (int i = 0; i < newList.length; i++) {
+           if (newList[i].sortOrder != i) {
+             newList[i] = newList[i].copyWith(sortOrder: i);
+             _storageService.saveSecret(newList[i]);
            }
         }
         
-        // 5. Re-apply current filters to maintain visibility
+        // 5. Update ground truth and Re-apply current filters to maintain visibility
+        _allProjectSecrets = newList;
         final filtered = _filterSecrets(_allProjectSecrets, currentState.searchQuery, currentState.filterType);
-        emit(currentState.copyWith(secrets: filtered));
+        
+        // Use List.of and increment nonce to ENSURE UI rebuild
+        emit(currentState.copyWith(
+          secrets: List.of(filtered),
+          expansionNonce: currentState.expansionNonce + 1,
+        ));
       }
     }
   }
@@ -179,7 +187,12 @@ class SecretBloc extends Bloc<SecretEvent, SecretState> {
         _currentProjectId = event.projectId;
       }
 
-      _allProjectSecrets = _storageService.getSecrets(event.projectId);
+      if (event.projectId == null) {
+        _allProjectSecrets = _storageService.getAllSecrets();
+      } else {
+        _allProjectSecrets = _storageService.getSecrets(event.projectId!);
+      }
+
       emit(SecretLoaded(
         secrets: _allProjectSecrets,
         typeCounts: _getTypeCounts(_allProjectSecrets),

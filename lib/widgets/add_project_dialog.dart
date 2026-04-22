@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../theme/app_theme.dart';
-
 import '../models/project.dart';
+import '../blocs/project/project_bloc.dart';
+import '../blocs/project/project_state.dart';
 
 class AddProjectDialog extends StatefulWidget {
   final Project? projectToEdit;
@@ -15,6 +17,7 @@ class _AddProjectDialogState extends State<AddProjectDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
+  String? _selectedParentId;
 
   final List<Color> _presetColors = [
     const Color(0xFF7C4DFF), // violet
@@ -35,6 +38,7 @@ class _AddProjectDialogState extends State<AddProjectDialog> {
       _nameController.text = widget.projectToEdit!.name;
       _descController.text = widget.projectToEdit!.description ?? '';
       _selectedColor = Color(widget.projectToEdit!.color);
+      _selectedParentId = widget.projectToEdit!.parentId;
     } else {
       _selectedColor = _presetColors[0];
     }
@@ -99,6 +103,55 @@ class _AddProjectDialogState extends State<AddProjectDialog> {
                   ),
                   validator: (v) =>
                       (v == null || v.isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+
+                // Parent Project selection
+                BlocBuilder<ProjectBloc, ProjectState>(
+                  builder: (context, state) {
+                    if (state is ProjectLoaded) {
+                      // Filter out the current project to avoid circular reference if editing
+                      final availableProjects = state.projects
+                          .where((p) => p.id != widget.projectToEdit?.id)
+                          .toList();
+
+                      // Build a hierarchical list for the dropdown
+                      List<DropdownMenuItem<String>> buildHierarchicalItems(String? parentId, int depth) {
+                        final children = availableProjects.where((p) => p.parentId == parentId).toList();
+                        children.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+                        
+                        List<DropdownMenuItem<String>> items = [];
+                        for (var p in children) {
+                          items.add(DropdownMenuItem(
+                            value: p.id,
+                            child: Padding(
+                              padding: EdgeInsets.only(left: depth * 16.0),
+                              child: Text(depth > 0 ? '↳ ${p.name}' : p.name),
+                            ),
+                          ));
+                          items.addAll(buildHierarchicalItems(p.id, depth + 1));
+                        }
+                        return items;
+                      }
+
+                      return DropdownButtonFormField<String>(
+                        value: _selectedParentId,
+                        decoration: const InputDecoration(
+                          labelText: 'Parent Project (Optional)',
+                          prefixIcon: Icon(Icons.subdirectory_arrow_right_rounded),
+                        ),
+                        items: [
+                          const DropdownMenuItem<String>(
+                            value: null,
+                            child: Text('No Parent (Top Level)'),
+                          ),
+                          ...buildHierarchicalItems(null, 0),
+                        ],
+                        onChanged: (val) => setState(() => _selectedParentId = val),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
                 ),
                 const SizedBox(height: 16),
 
@@ -192,6 +245,7 @@ class _AddProjectDialogState extends State<AddProjectDialog> {
                             'name': _nameController.text,
                             'description': _descController.text,
                             'color': _selectedColor.toARGB32(),
+                            'parentId': _selectedParentId,
                           });
                         }
                       },

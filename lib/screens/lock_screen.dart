@@ -7,9 +7,6 @@ import '../blocs/auth/auth_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import 'home_screen.dart';
-import '../blocs/settings/settings_bloc.dart';
-import '../blocs/settings/settings_state.dart';
-import '../services/biometric_service.dart';
 
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key});
@@ -25,7 +22,6 @@ class _LockScreenState extends State<LockScreen>
   late AnimationController _animCtrl;
   late Animation<double> _fadeIn;
   late Animation<Offset> _slideUp;
-  bool _didTryBiometrics = false;
 
   @override
   void initState() {
@@ -56,23 +52,6 @@ class _LockScreenState extends State<LockScreen>
     }
   }
 
-  Future<void> _attemptBiometricUnlock() async {
-    if (!mounted) return;
-    final biometricService = context.read<BiometricService>();
-    if (await biometricService.isBiometricAvailable()) {
-      final success = await biometricService.authenticate();
-      if (success && mounted) {
-        final pwd = await biometricService.getStoredMasterPassword();
-        if (pwd != null && pwd.isNotEmpty) {
-          context.read<AuthBloc>().add(UnlockVault(pwd));
-        } else {
-          AppToast.show(context, message: 'No stored master password for biometrics. Please login normally once.', type: ToastType.error);
-        }
-      }
-    } else {
-       AppToast.show(context, message: 'Biometrics not available or not configured on this device.', type: ToastType.error);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,19 +60,6 @@ class _LockScreenState extends State<LockScreen>
 
     return MultiBlocListener(
       listeners: [
-        BlocListener<SettingsBloc, SettingsState>(
-          listener: (context, state) {
-            if (state is SettingsLoaded && state.useBiometrics && !_didTryBiometrics) {
-              _didTryBiometrics = true;
-              
-              // Only auto-prompt if it's already a created vault (AuthLocked with master password)
-              final authState = context.read<AuthBloc>().state;
-              if (authState is AuthLocked && authState.hasMasterPassword) {
-                 _attemptBiometricUnlock();
-              }
-            }
-          },
-        ),
         BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
         if (state is AuthUnlocked) {
@@ -152,9 +118,6 @@ class _LockScreenState extends State<LockScreen>
                             ? state.hasMasterPassword
                             : true;
                             
-                        final settingsState = context.watch<SettingsBloc>().state;
-                        final showBiometricBtn = hasMasterPassword && settingsState is SettingsLoaded && settingsState.useBiometrics;
-
                         return ClipRRect(
                           borderRadius: BorderRadius.circular(24),
                           child: BackdropFilter(
@@ -290,26 +253,6 @@ class _LockScreenState extends State<LockScreen>
                                           ),
                                         ),
                                       ),
-                                      if (showBiometricBtn) ...[
-                                        const SizedBox(width: 16),
-                                        SizedBox(
-                                          width: 52,
-                                          height: 52,
-                                          child: DecoratedBox(
-                                            decoration: BoxDecoration(
-                                              color: colors.card,
-                                              borderRadius: BorderRadius.circular(14),
-                                              border: Border.all(color: colors.border),
-                                            ),
-                                            child: IconButton(
-                                              icon: const Icon(Icons.fingerprint_rounded, size: 28),
-                                              color: colors.accent,
-                                              onPressed: _attemptBiometricUnlock,
-                                              tooltip: 'Unlock with Biometrics',
-                                            ),
-                                          ),
-                                        ),
-                                      ]
                                     ],
                                   ),
                                 ],
