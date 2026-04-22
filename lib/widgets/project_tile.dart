@@ -6,6 +6,7 @@ class ProjectTile extends StatefulWidget {
   final Project project;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final bool isDragHovered;
 
@@ -14,6 +15,7 @@ class ProjectTile extends StatefulWidget {
     required this.project,
     required this.isSelected,
     required this.onTap,
+    this.onEdit,
     this.onDelete,
     this.isDragHovered = false,
   });
@@ -36,64 +38,70 @@ class _ProjectTileState extends State<ProjectTile> {
         onExit: (_) => setState(() => _isHovered = false),
         child: GestureDetector(
           onSecondaryTapDown: (details) {
-            if (widget.onDelete != null) {
+            if (widget.onDelete != null || widget.onEdit != null) {
+              _showContextMenu(context, details.globalPosition);
+            }
+          },
+          onLongPressStart: (details) {
+            if (widget.onDelete != null || widget.onEdit != null) {
               _showContextMenu(context, details.globalPosition);
             }
           },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOutQuart,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: widget.isSelected || widget.isDragHovered 
+                borderRadius: BorderRadius.circular(18),
+                color: widget.isSelected 
                     ? projectColor.withValues(alpha: isDark ? 0.2 : 0.1) 
-                    : (_isHovered ? colors.accent.withValues(alpha: 0.08) : Colors.transparent),
+                    : (_isHovered ? colors.accent.withValues(alpha: 0.05) : Colors.transparent),
                 border: Border.all(
-                  color: widget.isDragHovered 
-                      ? colors.accent 
-                      : (widget.isSelected ? projectColor.withValues(alpha: 0.4) : (_isHovered ? colors.border : Colors.transparent)),
-                  width: widget.isDragHovered ? 2 : 1,
+                  color: widget.isSelected 
+                      ? projectColor.withValues(alpha: 0.4) 
+                      : (_isHovered ? colors.border.withValues(alpha: 0.4) : Colors.transparent),
+                  width: 1.5,
                 ),
                 boxShadow: [
                   if (widget.isSelected)
                     BoxShadow(
                       color: projectColor.withValues(alpha: 0.15),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      blurRadius: 30,
+                      offset: const Offset(0, 10),
                     ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(18),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: widget.onTap,
-                    borderRadius: BorderRadius.circular(12),
-                    hoverColor: projectColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(18),
+                    hoverColor: Colors.transparent,
+                    splashColor: projectColor.withValues(alpha: 0.1),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       child: Row(
                         children: [
-                          Container(
-                            width: 10,
-                            height: 10,
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 400),
+                            width: widget.isSelected ? 14 : 10,
+                            height: widget.isSelected ? 14 : 10,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: projectColor,
-                              boxShadow: widget.isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: projectColor.withValues(alpha: 0.5),
-                                        blurRadius: 6,
-                                        spreadRadius: 1,
-                                      )
-                                    ]
-                                  : null,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: projectColor.withValues(alpha: 0.8),
+                                  blurRadius: widget.isSelected ? 16 : 0,
+                                  spreadRadius: widget.isSelected ? 2 : 0,
+                                )
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 16),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,25 +109,36 @@ class _ProjectTileState extends State<ProjectTile> {
                                 Text(
                                   widget.project.name,
                                   style: TextStyle(
-                                    fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
-                                    fontSize: 14,
-                                    color: widget.isSelected ? projectColor : null,
+                                    fontWeight: widget.isSelected ? FontWeight.w800 : FontWeight.w600,
+                                    fontSize: 15,
+                                    letterSpacing: -0.3,
+                                    color: widget.isSelected 
+                                        ? (isDark ? Colors.white : projectColor)
+                                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 if (widget.project.description != null && widget.project.description!.isNotEmpty)
-                                  Text(
-                                    widget.project.description!,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
-                                        ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      widget.project.description!,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w400,
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
                                   ),
                               ],
                             ),
                           ),
-                          if (widget.isSelected) Icon(Icons.chevron_right_rounded, color: projectColor.withValues(alpha: 0.7), size: 18),
+                          if (widget.isSelected) 
+                            Icon(Icons.arrow_forward_ios_rounded, 
+                                color: (isDark ? Colors.white : projectColor).withValues(alpha: 0.4), 
+                                size: 10),
                         ],
                       ),
                     ),
@@ -145,20 +164,36 @@ class _ProjectTileState extends State<ProjectTile> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: colors.card,
       elevation: 8,
-      items: [
-        const PopupMenuItem(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
-              SizedBox(width: 12),
-              Text('Delete Project', style: TextStyle(color: Colors.red)),
-            ],
+      items: <PopupMenuEntry<String>>[
+        if (widget.onEdit != null)
+          const PopupMenuItem(
+            value: 'edit',
+            child: Row(
+              children: [
+                Icon(Icons.edit_outlined, size: 18),
+                SizedBox(width: 12),
+                Text('Edit Project'),
+              ],
+            ),
           ),
-        ),
+        if (widget.onEdit != null)
+          const PopupMenuDivider(),
+        if (widget.onDelete != null)
+          const PopupMenuItem(
+            value: 'delete',
+            child: Row(
+              children: [
+                Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                SizedBox(width: 12),
+                Text('Delete Project', style: TextStyle(color: Colors.red)),
+              ],
+            ),
+          ),
       ],
     ).then((value) {
-      if (value == 'delete' && widget.onDelete != null) {
+      if (value == 'edit' && widget.onEdit != null) {
+        widget.onEdit!();
+      } else if (value == 'delete' && widget.onDelete != null) {
         widget.onDelete!();
       }
     });

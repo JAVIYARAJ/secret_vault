@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../models/secret.dart';
@@ -153,339 +154,352 @@ class _SecretCardState extends State<SecretCard> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
+      child: AnimatedScale(
+        scale: _isHovered ? 1.015 : 1.0,
         duration: const Duration(milliseconds: 300),
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: isDark ? colors.card : Colors.white,
-          border: Border.all(
-            color: _isHovered ? colors.accent.withValues(alpha: 0.3) : colors.border,
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: _isHovered ? colors.accent.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.02),
-              blurRadius: _isHovered ? 24 : 8,
-              offset: _isHovered ? const Offset(0, 10) : const Offset(0, 4),
+        curve: Curves.easeOutBack,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutQuart,
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: isDark 
+                ? colors.card.withValues(alpha: _isHovered ? 0.85 : 0.65) 
+                : Colors.white.withValues(alpha: 0.9),
+            border: Border.all(
+              color: _isHovered ? colors.accent.withValues(alpha: 0.5) : colors.border.withValues(alpha: 0.3),
+              width: 1.5,
             ),
-            if (_isHovered)
+            boxShadow: [
               BoxShadow(
-                color: colors.accent.withValues(alpha: 0.04),
-                blurRadius: 40,
-                offset: const Offset(0, 20),
+                color: Colors.black.withValues(alpha: _isHovered ? (isDark ? 0.5 : 0.12) : 0.04),
+                blurRadius: _isHovered ? 40 : 12,
+                offset: _isHovered ? const Offset(0, 16) : const Offset(0, 4),
+                spreadRadius: _isHovered ? -4 : 0,
               ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              // Sidebar Type Accent
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: 16,
-                child: Draggable<String>(
-                  data: widget.secret.id,
-                  feedback: Material(
-                    elevation: 12,
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                    child: SizedBox(
-                      width: MediaQuery.of(context).size.width - 48,
-                      child: SecretCard(
-                        secret: widget.secret,
-                        revealedFieldIds: const {},
-                        onEdit: () {},
-                        onDelete: () {},
-                        isDragging: true,
-                      ),
-                    ),
-                  ),
-                  childWhenDragging: Container(color: typeColor.withValues(alpha: 0.1)),
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.grab,
-                    child: Tooltip(
-                      message: 'Drag handle to move to other project',
-                      preferBelow: false,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: typeColor.withValues(alpha: 0.1),
-                          border: Border(right: BorderSide(color: typeColor.withValues(alpha: 0.2))),
+              if (_isHovered)
+                BoxShadow(
+                  color: colors.accent.withValues(alpha: 0.15),
+                  blurRadius: 50,
+                  offset: const Offset(0, 20),
+                  spreadRadius: -10,
+                ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Stack(
+                children: [
+                  // Sidebar Type Accent
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 16,
+                    child: Draggable<String>(
+                      data: widget.secret.id,
+                      feedback: Material(
+                        elevation: 12,
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width - 48,
+                          child: SecretCard(
+                            secret: widget.secret,
+                            revealedFieldIds: const {},
+                            onEdit: () {},
+                            onDelete: () {},
+                            isDragging: true,
+                          ),
                         ),
-                        child: Center(
-                          child: Icon(Icons.drag_indicator_rounded, 
-                            size: 14, 
-                            color: typeColor.withValues(alpha: _isHovered ? 0.8 : 0.4)
+                      ),
+                      childWhenDragging: Container(color: typeColor.withValues(alpha: 0.1)),
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.grab,
+                        child: Tooltip(
+                          message: 'Drag handle to move to other project',
+                          preferBelow: false,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: typeColor.withValues(alpha: 0.1),
+                              border: Border(right: BorderSide(color: typeColor.withValues(alpha: 0.2))),
+                            ),
+                            child: Center(
+                              child: Icon(Icons.drag_indicator_rounded, 
+                                size: 14, 
+                                color: typeColor.withValues(alpha: _isHovered ? 0.8 : 0.4)
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              Theme(
-                data: Theme.of(context).copyWith(
-                  dividerColor: Colors.transparent,
-                  splashColor: typeColor.withValues(alpha: 0.05),
-                  highlightColor: Colors.transparent,
-                ),
-                child: ExpansionTile(
-                  key: ValueKey(widget.secret.id),
-                  controller: _expansionController,
-                  initiallyExpanded: widget.expandedId == widget.secret.id,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  onExpansionChanged: (v) {
-                    setState(() => _isExpanded = v);
-                    if (v) {
-                      context.read<SecretBloc>().add(LogSecretAccess(widget.secret.id));
-                    }
-                  },
-                  iconColor: colors.accent,
-                  collapsedIconColor: colors.accent.withValues(alpha: 0.4),
-                  tilePadding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
-                  childrenPadding: EdgeInsets.zero,
-                  leading: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          typeColor.withValues(alpha: 0.2),
-                          typeColor.withValues(alpha: 0.05),
+                  Theme(
+                    data: Theme.of(context).copyWith(
+                      dividerColor: Colors.transparent,
+                      splashColor: typeColor.withValues(alpha: 0.05),
+                      highlightColor: Colors.transparent,
+                    ),
+                    child: ExpansionTile(
+                      key: ValueKey(widget.secret.id),
+                      controller: _expansionController,
+                      initiallyExpanded: widget.expandedId == widget.secret.id,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      onExpansionChanged: (v) {
+                        setState(() => _isExpanded = v);
+                        if (v) {
+                          context.read<SecretBloc>().add(LogSecretAccess(widget.secret.id));
+                        }
+                      },
+                      iconColor: colors.accent,
+                      collapsedIconColor: colors.accent.withValues(alpha: 0.4),
+                      tilePadding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
+                      childrenPadding: EdgeInsets.zero,
+                      leading: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          color: typeColor.withValues(alpha: isDark ? 0.2 : 0.1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: typeColor.withValues(alpha: 0.2),
+                              blurRadius: 10,
+                              spreadRadius: -2,
+                            )
+                          ],
+                          border: Border.all(color: typeColor.withValues(alpha: 0.2)),
+                        ),
+                        child: Icon(_iconForType(widget.secret.type), color: typeColor, size: 22),
+                      ),
+                      title: Text(
+                        widget.secret.title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: typeColor.withValues(alpha: 0.1),
+                              ),
+                              child: Text(
+                                _labelForType(widget.secret.type),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: typeColor,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                            if (widget.secret.fields.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                '${widget.secret.fields.length} item${widget.secret.fields.length == 1 ? '' : 's'}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AnimatedOpacity(
+                            duration: const Duration(milliseconds: 200),
+                            opacity: _isHovered || widget.secret.isFavourite ? 1.0 : 0.0,
+                            child: IconButton(
+                              icon: Icon(
+                                widget.secret.isFavourite ? Icons.star_rounded : Icons.star_outline_rounded,
+                                size: 20,
+                                color: widget.secret.isFavourite ? Colors.amber : colors.accent.withValues(alpha: 0.4),
+                              ),
+                              onPressed: () => context.read<SecretBloc>().add(ToggleFavourite(widget.secret.id)),
+                              tooltip: widget.secret.isFavourite ? 'Unpin' : 'Pin to top',
+                              splashRadius: 20,
+                            ),
+                          ),
+                          AnimatedOpacity(
+                            duration: const Duration(milliseconds: 200),
+                            opacity: _isHovered ? 1.0 : 0.0,
+                            child: PopupMenuButton<String>(
+                              icon: Icon(Icons.more_horiz_rounded, size: 20, color: colors.accent.withValues(alpha: 0.6)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              offset: const Offset(0, 40),
+                              elevation: 8,
+                              onSelected: (v) {
+                                if (v == 'edit') widget.onEdit();
+                                if (v == 'delete') widget.onDelete();
+                                if (v == 'move' && widget.onMove != null) widget.onMove!();
+                              },
+                              itemBuilder: (_) => [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(children: [
+                                    Icon(Icons.edit_rounded, size: 18, color: colors.accent),
+                                    const SizedBox(width: 12),
+                                    const Text('Edit Details', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                  ]),
+                                ),
+                                if (widget.onMove != null)
+                                  PopupMenuItem(
+                                    value: 'move',
+                                    child: Row(children: [
+                                      Icon(Icons.drive_file_move_rounded, size: 18, color: colors.accent),
+                                      const SizedBox(width: 12),
+                                      const Text('Move to Project', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                    ]),
+                                  ),
+                                const PopupMenuDivider(height: 1),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(children: [
+                                    Icon(Icons.delete_forever_rounded, size: 18, color: Colors.redAccent.shade200),
+                                    const SizedBox(width: 12),
+                                    Text('Delete Secret', style: TextStyle(color: Colors.redAccent.shade200, fontSize: 13, fontWeight: FontWeight.w500)),
+                                  ]),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          AnimatedRotation(
+                            turns: _isExpanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            child: const Icon(Icons.expand_more_rounded, size: 20),
+                          ),
                         ],
                       ),
-                      border: Border.all(color: typeColor.withValues(alpha: 0.15)),
-                    ),
-                    child: Icon(_iconForType(widget.secret.type), color: typeColor, size: 22),
-                  ),
-                  title: Text(
-                    widget.secret.title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                      color: Theme.of(context).colorScheme.onSurface,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: typeColor.withValues(alpha: 0.1),
-                          ),
-                          child: Text(
-                            _labelForType(widget.secret.type),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: typeColor,
-                              letterSpacing: 0.5,
-                            ),
+                          margin: const EdgeInsets.symmetric(horizontal: 24),
+                          height: 1,
+                          color: colors.border.withValues(alpha: 0.5),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ...widget.secret.fields.map((field) {
+                                final revealed = !field.isSecret || widget.revealedFieldIds.contains(field.id);
+                                String decrypted = '';
+                                try {
+                                  decrypted = enc.decryptValue(field.encryptedValue);
+                                  decrypted = decrypted.isEmpty ? 'Empty' : decrypted;
+                                } catch (_) {
+                                  decrypted = 'Decryption error';
+                                }
+
+                                return _FieldRow(
+                                  field: field,
+                                  isRevealed: revealed,
+                                  decryptedValue: decrypted,
+                                  onToggle: () => context.read<SecretBloc>().add(ToggleRevealField(widget.secret.id, field.id)),
+                                  onCopy: () {
+                                    context.read<SecretBloc>().add(CopyField(widget.secret.id, field.id));
+                                    AppToast.show(
+                                      context,
+                                      message: '${field.label} copied',
+                                      type: ToastType.success,
+                                    );
+                                  },
+                                );
+                              }),
+                              if (widget.secret.note != null && widget.secret.note!.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: colors.border.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: colors.border.withValues(alpha: 0.2)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(children: [
+                                        Icon(Icons.notes_rounded, size: 14, color: colors.accent.withValues(alpha: 0.6)),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Note',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: colors.accent.withValues(alpha: 0.7),
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ]),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        widget.secret.note!,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          height: 1.5,
+                                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              if (widget.secret.tags != null && widget.secret.tags!.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: widget.secret.tags!
+                                      .map((tag) => Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(10),
+                                              color: Colors.black.withValues(alpha: 0.03),
+                                              border: Border.all(color: colors.border),
+                                            ),
+                                            child: Text(
+                                              '#$tag',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                                              ),
+                                            ),
+                                          ))
+                                      .toList(),
+                                ),
+                              ]
+                            ],
                           ),
                         ),
-                        if (widget.secret.fields.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            '${widget.secret.fields.length} item${widget.secret.fields.length == 1 ? '' : 's'}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AnimatedOpacity(
-                        duration: const Duration(milliseconds: 200),
-                        opacity: _isHovered || widget.secret.isFavourite ? 1.0 : 0.0,
-                        child: IconButton(
-                          icon: Icon(
-                            widget.secret.isFavourite ? Icons.star_rounded : Icons.star_outline_rounded,
-                            size: 20,
-                            color: widget.secret.isFavourite ? Colors.amber : colors.accent.withValues(alpha: 0.4),
-                          ),
-                          onPressed: () => context.read<SecretBloc>().add(ToggleFavourite(widget.secret.id)),
-                          tooltip: widget.secret.isFavourite ? 'Unpin' : 'Pin to top',
-                          splashRadius: 20,
-                        ),
-                      ),
-                      AnimatedOpacity(
-                        duration: const Duration(milliseconds: 200),
-                        opacity: _isHovered ? 1.0 : 0.0,
-                        child: PopupMenuButton<String>(
-                          icon: Icon(Icons.more_horiz_rounded, size: 20, color: colors.accent.withValues(alpha: 0.6)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          offset: const Offset(0, 40),
-                          elevation: 8,
-                          onSelected: (v) {
-                            if (v == 'edit') widget.onEdit();
-                            if (v == 'delete') widget.onDelete();
-                            if (v == 'move' && widget.onMove != null) widget.onMove!();
-                          },
-                          itemBuilder: (_) => [
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: Row(children: [
-                                Icon(Icons.edit_rounded, size: 18, color: colors.accent),
-                                const SizedBox(width: 12),
-                                const Text('Edit Details', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                              ]),
-                            ),
-                            if (widget.onMove != null)
-                              PopupMenuItem(
-                                value: 'move',
-                                child: Row(children: [
-                                  Icon(Icons.drive_file_move_rounded, size: 18, color: colors.accent),
-                                  const SizedBox(width: 12),
-                                  const Text('Move to Project', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                                ]),
-                              ),
-                            const PopupMenuDivider(height: 1),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Row(children: [
-                                Icon(Icons.delete_forever_rounded, size: 18, color: Colors.redAccent.shade200),
-                                const SizedBox(width: 12),
-                                Text('Delete Secret', style: TextStyle(color: Colors.redAccent.shade200, fontSize: 13, fontWeight: FontWeight.w500)),
-                              ]),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      AnimatedRotation(
-                         turns: _isExpanded ? 0.5 : 0,
-                         duration: const Duration(milliseconds: 200),
-                         child: const Icon(Icons.expand_more_rounded, size: 20),
-                      ),
-                    ],
-                  ),
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 24),
-                      height: 1,
-                      color: colors.border.withValues(alpha: 0.5),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ...widget.secret.fields.map((field) {
-                            final revealed = !field.isSecret || widget.revealedFieldIds.contains(field.id);
-                            String decrypted = '';
-                            try {
-                              decrypted = enc.decryptValue(field.encryptedValue);
-                            decrypted = decrypted.isEmpty ? 'Empty' : decrypted;
-                            } catch (_) {
-                              decrypted = 'Decryption error';
-                            }
-
-                            return _FieldRow(
-                              field: field,
-                              isRevealed: revealed,
-                              decryptedValue: decrypted,
-                              onToggle: () => context.read<SecretBloc>().add(ToggleRevealField(widget.secret.id, field.id)),
-                              onCopy: () {
-                                context.read<SecretBloc>().add(CopyField(widget.secret.id, field.id));
-                                AppToast.show(
-                                  context,
-                                  message: '${field.label} copied',
-                                  type: ToastType.success,
-                                );
-                              },
-                            );
-                          }),
-                          if (widget.secret.note != null && widget.secret.note!.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: colors.border.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: colors.border.withValues(alpha: 0.2)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(children: [
-                                    Icon(Icons.notes_rounded, size: 14, color: colors.accent.withValues(alpha: 0.6)),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Note',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: colors.accent.withValues(alpha: 0.7),
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ]),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    widget.secret.note!,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      height: 1.5,
-                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          if (widget.secret.tags != null && widget.secret.tags!.isNotEmpty) ...[
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: widget.secret.tags!
-                                  .map((tag) => Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(10),
-                                          color: Colors.black.withValues(alpha: 0.03),
-                                          border: Border.all(color: colors.border),
-                                        ),
-                                        child: Text(
-                                          '#$tag',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                                          ),
-                                        ),
-                                      ))
-                                  .toList(),
-                            ),
-                          ]
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
-      ));
+      ),
+    );
   }
 }
 

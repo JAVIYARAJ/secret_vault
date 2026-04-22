@@ -227,6 +227,9 @@ class _AddSecretDialogState extends State<AddSecretDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(
+              height: 10,
+            ),
             // Basic Details
             TextFormField(
               controller: _titleController,

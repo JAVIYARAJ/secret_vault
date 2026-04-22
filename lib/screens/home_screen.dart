@@ -43,19 +43,24 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showSpotlight = false;
   late ClipboardService _clipboardService;
   int? _remainingSeconds;
+  bool _isSidebarExpanded = true;
+
+  void _toggleSidebar() {
+    setState(() => _isSidebarExpanded = !_isSidebarExpanded);
+  }
 
   @override
   void initState() {
     super.initState();
     context.read<ProjectBloc>().add(LoadProjects());
-    
+
     _clipboardService = RepositoryProvider.of<ClipboardService>(context);
     _clipboardService.onCountdown = (remaining) {
       if (mounted) {
         setState(() => _remainingSeconds = remaining > 0 ? remaining : null);
       }
     };
-    
+
     _clipboardService.onCleared = () {
       if (mounted) {
         setState(() => _remainingSeconds = null);
@@ -122,32 +127,68 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Stack(
             children: [
               Scaffold(
-                backgroundColor: colors.background,
-                body: Row(
+                backgroundColor: Colors.transparent,
+                body: Stack(
                   children: [
-                    _Sidebar(
-                      colors: colors,
-                      isDark: isDark,
-                      searchController: _searchController,
+                    // Modern Mesh Background
+                    Positioned.fill(
+                      child: _MeshBackground(colors: colors, isDark: isDark),
+                    ),
+                    Row(
+                      children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeInOut,
+                      width: _isSidebarExpanded ? 280 : 0,
+                      margin: _isSidebarExpanded ? const EdgeInsets.fromLTRB(12, 12, 0, 12) : EdgeInsets.zero,
+                      clipBehavior: Clip.hardEdge,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          if (_isSidebarExpanded)
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
+                              blurRadius: 40,
+                              offset: const Offset(0, 10),
+                            ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                          child: SingleChildScrollView(
+                            physics: const NeverScrollableScrollPhysics(),
+                            scrollDirection: Axis.horizontal,
+                            child: _Sidebar(
+                              colors: colors,
+                              isDark: isDark,
+                              searchController: _searchController,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                      child: Stack(
                         children: [
-                          _TopBar(
-                            colors: colors,
-                            isDark: isDark,
-                            searchController: _searchController,
+                          Positioned.fill(
+                            child: _SecretList(colors: colors, topPadding: 80),
                           ),
-                          Expanded(
-                            child: MediaQuery.removePadding(
-                              context: context,
-                              removeTop: true,
-                              child: _SecretList(colors: colors),
+                          Positioned(
+                            top: 12, left: 12, right: 12,
+                            child: _TopBar(
+                              colors: colors,
+                              isDark: isDark,
+                              searchController: _searchController,
+                              onToggleSidebar: _toggleSidebar,
+                              isSidebarExpanded: _isSidebarExpanded,
                             ),
                           ),
                         ],
                       ),
+                    ),
+                      ],
                     ),
                   ],
                 ),
@@ -163,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       final total = (settingsState is SettingsLoaded)
                           ? settingsState.clipboardClearSeconds
                           : 30;
-                      
+
                       return AnimatedSwitcher(
                         duration: const Duration(milliseconds: 400),
                         transitionBuilder: (child, animation) => FadeTransition(
@@ -237,13 +278,31 @@ class _Sidebar extends StatelessWidget {
     );
   }
 
+  void _editProject(BuildContext context, Project project) async {
+    final result = await showDialog(
+      context: context,
+      builder: (_) => AddProjectDialog(projectToEdit: project),
+    );
+    if (result != null && context.mounted) {
+      final updatedProject = Project(
+        id: project.id,
+        createdAt: project.createdAt,
+        sortOrder: project.sortOrder,
+        name: result['name'],
+        description: result['description'],
+        color: result['color'],
+      );
+      context.read<ProjectBloc>().add(UpdateProject(updatedProject));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 256,
+      width: 280,
       decoration: BoxDecoration(
-        color: isDark ? colors.surface : Colors.white,
-        border: Border(right: BorderSide(color: colors.border)),
+        color: (isDark ? colors.surface : Colors.white).withValues(alpha: isDark ? 0.7 : 0.85),
+        border: Border.all(color: colors.border.withValues(alpha: isDark ? 0.2 : 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,8 +397,8 @@ class _Sidebar extends StatelessWidget {
                 if (state is ProjectLoaded && state.selectedProjectId != null) {
                   // Only dispatch LoadSecrets if project changed OR we have a specific expansion target
                   final secretBloc = context.read<SecretBloc>();
-                  final bool projectChanged = (secretBloc.state is! SecretLoaded) || 
-                      (secretBloc.state as SecretLoaded).secrets.isEmpty || 
+                  final bool projectChanged = (secretBloc.state is! SecretLoaded) ||
+                      (secretBloc.state as SecretLoaded).secrets.isEmpty ||
                       (state.selectedProjectId != (secretBloc.state as SecretLoaded).secrets.firstOrNull?.projectId);
 
                   if (projectChanged || state.targetSecretId != null) {
@@ -347,7 +406,7 @@ class _Sidebar extends StatelessWidget {
                       state.selectedProjectId!,
                       initialExpandedId: state.targetSecretId,
                     ));
-                    
+
                     if (state.targetSecretId != null) {
                       context.read<ProjectBloc>().add(ClearTargetSecret());
                     }
@@ -417,6 +476,7 @@ class _Sidebar extends StatelessWidget {
                                     .read<ProjectBloc>()
                                     .add(SelectProject(p.id));
                               },
+                              onEdit: () => _editProject(context, p),
                               onDelete: () => _confirmDeleteProject(context, p),
                             );
                           },
@@ -602,138 +662,107 @@ class _TopBar extends StatelessWidget {
   final AppColors colors;
   final bool isDark;
   final TextEditingController searchController;
+  final VoidCallback onToggleSidebar;
+  final bool isSidebarExpanded;
 
   const _TopBar(
       {required this.colors,
       required this.isDark,
-      required this.searchController});
+      required this.searchController,
+      required this.onToggleSidebar,
+      required this.isSidebarExpanded});
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ProjectBloc, ProjectState>(
       builder: (context, projectState) {
-        final selectedId = projectState is ProjectLoaded
-            ? projectState.selectedProjectId
-            : null;
+        final selectedId = projectState is ProjectLoaded ? projectState.selectedProjectId : null;
         final project = (projectState is ProjectLoaded && selectedId != null)
-            ? projectState.projects
-                .where((p) => p.id == selectedId)
-                .firstOrNull
+            ? projectState.projects.where((p) => p.id == selectedId).firstOrNull
             : null;
 
-        return Container(
-          height: 56,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          height: 64,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: isDark ? colors.surface : Colors.white,
-            border: Border(bottom: BorderSide(color: colors.border)),
-          ),
-          child: Row(
-            children: [
-              if (project != null) ...[
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(project.color),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(project.color).withValues(alpha: 0.5),
-                        blurRadius: 8,
-                      )
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  project.name,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 18),
-                ),
-                if (project.description != null &&
-                    project.description!.isNotEmpty) ...[
-                  const SizedBox(width: 10),
-                  Text(
-                    project.description!,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.4),
-                    ),
-                  ),
-                ],
-              ] else
-                Text(
-                  'Select a project',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.4),
-                  ),
-                ),
-              const Spacer(),
-              // Search bar
-              if (selectedId != null)
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 240,
-                      height: 36,
-                      child: TextField(
-                        controller: searchController,
-                        onChanged: (val) => context.read<SecretBloc>().add(SearchSecrets(val)),
-                        style: const TextStyle(fontSize: 13),
-                        decoration: InputDecoration(
-                          hintText: 'Search secrets...',
-                          hintStyle: TextStyle(
-                            fontSize: 13,
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
-                          ),
-                          prefixIcon: Icon(Icons.search_rounded, size: 16, color: colors.accent.withValues(alpha: 0.6)),
-                          contentPadding: EdgeInsets.zero,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: colors.border),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: colors.border),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: colors.accent, width: 1.5),
-                          ),
-                          fillColor: isDark ? colors.card : colors.background,
-                          filled: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    _FilterDropdown(colors: colors),
-                    // const SizedBox(width: 12),
-                    // IconButton(
-                    //   icon: Icon(Icons.history_rounded, size: 20, color: colors.accent.withValues(alpha: 0.6)),
-                    //   tooltip: 'View Audit Log',
-                    //   onPressed: () {
-                    //     Navigator.push(
-                    //       context,
-                    //       MaterialPageRoute(
-                    //         builder: (_) => AuditLogScreen(
-                    //           projectId: selectedId,
-                    //           projectName: project?.name,
-                    //         ),
-                    //       ),
-                    //     );
-                    //   },
-                    // ),
-                  ],
-                ),
+            borderRadius: BorderRadius.circular(24),
+            color: (isDark ? colors.surface : Colors.white).withValues(alpha: 0.8),
+            border: Border.all(color: colors.border.withValues(alpha: 0.1)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Left side: Menu + Project Info
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            isSidebarExpanded ? Icons.menu_open_rounded : Icons.menu_rounded,
+                            color: colors.accent,
+                            size: 24,
+                          ),
+                          onPressed: onToggleSidebar,
+                          tooltip: isSidebarExpanded ? 'Collapse' : 'Expand',
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            project?.name ?? 'Vault',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: -0.5),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(width: 24),
+
+                  // Right side: Search + Filter
+                  if (selectedId != null)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 240,
+                          height: 40,
+                          child: TextField(
+                            controller: searchController,
+                            onChanged: (val) => context.read<SecretBloc>().add(SearchSecrets(val)),
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                            decoration: InputDecoration(
+                              hintText: 'Search secrets...',
+                              hintStyle: TextStyle(color: colors.accent.withValues(alpha: 0.4)),
+                              prefixIcon: Icon(Icons.search_rounded, size: 18, color: colors.accent.withValues(alpha: 0.6)),
+                              fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : colors.border.withValues(alpha: 0.2),
+                              filled: true,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        _FilterDropdown(colors: colors, isDark: isDark),
+                      ],
+                    ),
+                ],
+              ),
+            ),
           ),
         );
       },
@@ -743,7 +772,8 @@ class _TopBar extends StatelessWidget {
 
 class _FilterDropdown extends StatelessWidget {
   final AppColors colors;
-  const _FilterDropdown({required this.colors});
+  final bool isDark;
+  const _FilterDropdown({required this.colors, required this.isDark});
 
   String _labelForType(SecretType type) {
     switch (type) {
@@ -798,9 +828,9 @@ class _FilterDropdown extends StatelessWidget {
             Container(
               height: 36,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colors.border),
-                color: hasFilter ? colors.accent.withValues(alpha: 0.05) : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: hasFilter ? colors.accent : Colors.transparent),
+                color: hasFilter ? colors.accent.withValues(alpha: 0.1) : (isDark ? colors.card.withValues(alpha: 0.5) : colors.border.withValues(alpha: 0.3)),
               ),
               child: PopupMenuButton<SecretType?>(
                 tooltip: 'Filter by type',
@@ -869,15 +899,15 @@ class _FilterDropdown extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: state.filterType == type 
-                                  ? colors.accent.withValues(alpha: 0.1) 
+                                color: state.filterType == type
+                                  ? colors.accent.withValues(alpha: 0.1)
                                   : Colors.black.withValues(alpha: 0.05),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 count.toString(),
                                 style: TextStyle(
-                                  fontSize: 10, 
+                                  fontSize: 10,
                                   color: state.filterType == type ? colors.accent : Colors.grey,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -903,7 +933,8 @@ class _FilterDropdown extends StatelessWidget {
 // ──────────────────────────────────────────────────────────
 class _SecretList extends StatefulWidget {
   final AppColors colors;
-  const _SecretList({required this.colors});
+  final double topPadding;
+  const _SecretList({required this.colors, this.topPadding = 0});
 
   @override
   State<_SecretList> createState() => _SecretListState();
@@ -921,7 +952,7 @@ class _SecretListState extends State<_SecretList> {
   void _scrollToIndex(int index) {
     if (index < 0) return;
     // Base jump so the item is definitely built by the ListView.builder
-    final offset = index * 90.0; 
+    final offset = index * 90.0;
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
         offset,
@@ -966,10 +997,10 @@ class _SecretListState extends State<_SecretList> {
         fromProjectId: secret.projectId,
         toProjectId: result,
       ));
-      
+
       final targetProject = projectState.projects.firstWhere((p) => p.id == result);
       AppToast.show(
-        context, 
+        context,
         message: 'Secret moved to ${targetProject.name}',
         type: ToastType.success,
       );
@@ -1043,11 +1074,11 @@ class _SecretListState extends State<_SecretList> {
 
           if (state is SecretLoaded) {
             final unpinned = state.unpinned;
-            
+
             return ReorderableListView.builder(
               scrollController: _scrollController,
-              padding: const EdgeInsets.only(top: 24, bottom: 100),
-              header: state.pinned.isNotEmpty 
+              padding: EdgeInsets.only(top: 24 + widget.topPadding, bottom: 100),
+              header: state.pinned.isNotEmpty
                 ? PinnedSecretsSection(
                   onEdit: (s) => _onEditSecret(context, s),
                   onDelete: (id) => _confirmDelete(context, id),
@@ -1222,6 +1253,56 @@ class _SmartFAB extends StatelessWidget {
             );
           }
         },
+      ),
+    );
+  }
+}
+
+class _MeshBackground extends StatelessWidget {
+  final AppColors colors;
+  final bool isDark;
+  const _MeshBackground({required this.colors, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Container(color: colors.background),
+        Positioned(
+          top: -100,
+          right: -100,
+          child: _GlowCircle(color: colors.accent.withValues(alpha: 0.1), size: 500),
+        ),
+        Positioned(
+          bottom: -200,
+          left: -100,
+          child: _GlowCircle(color: const Color(0xFF9C27B0).withValues(alpha: 0.08), size: 600),
+        ),
+        Positioned(
+          top: 200,
+          left: 100,
+          child: _GlowCircle(color: const Color(0xFF00D8FF).withValues(alpha: 0.05), size: 400),
+        ),
+      ],
+    );
+  }
+}
+
+class _GlowCircle extends StatelessWidget {
+  final Color color;
+  final double size;
+  const _GlowCircle({required this.color, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [color, color.withValues(alpha: 0)],
+        ),
       ),
     );
   }

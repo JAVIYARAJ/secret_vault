@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
+import '../models/project.dart';
+
 class AddProjectDialog extends StatefulWidget {
-  const AddProjectDialog({super.key});
+  final Project? projectToEdit;
+  const AddProjectDialog({super.key, this.projectToEdit});
 
   @override
   State<AddProjectDialog> createState() => _AddProjectDialogState();
@@ -28,8 +31,16 @@ class _AddProjectDialogState extends State<AddProjectDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedColor = _presetColors[0];
+    if (widget.projectToEdit != null) {
+      _nameController.text = widget.projectToEdit!.name;
+      _descController.text = widget.projectToEdit!.description ?? '';
+      _selectedColor = Color(widget.projectToEdit!.color);
+    } else {
+      _selectedColor = _presetColors[0];
+    }
   }
+
+  bool get isEditing => widget.projectToEdit != null;
 
   @override
   void dispose() {
@@ -69,7 +80,7 @@ class _AddProjectDialogState extends State<AddProjectDialog> {
                     ),
                     const SizedBox(width: 14),
                     Text(
-                      'New Project',
+                      isEditing ? 'Edit Project' : 'New Project',
                       style: Theme.of(context)
                           .textTheme
                           .titleLarge
@@ -191,7 +202,7 @@ class _AddProjectDialogState extends State<AddProjectDialog> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Text('Create Project'),
+                      child: Text(isEditing ? 'Save Changes' : 'Create Project'),
                     ),
                   ],
                 ),
