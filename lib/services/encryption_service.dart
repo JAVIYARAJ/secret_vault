@@ -43,4 +43,9 @@ class EncryptionService {
     var digest = sha256.convert(bytes);
     return digest.toString();
   }
+
+  String generateRandomKey(int length) {
+    final key = encrypt.Key.fromSecureRandom(length);
+    return key.base64;
+  }
 }

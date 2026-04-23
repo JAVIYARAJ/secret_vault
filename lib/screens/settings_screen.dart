@@ -10,6 +10,7 @@ import '../blocs/import/import_bloc.dart';
 import '../widgets/import_dialog.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
+import '../services/extension_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -155,6 +156,11 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           ],
                         ),
+
+                        const SizedBox(height: 24),
+
+                        // ── Browser Extension ───────────────────────
+                        _ExtensionSettingsSection(colors: colors),
 
                         const SizedBox(height: 24),
 
@@ -531,3 +537,107 @@ class _CreatorCard extends StatelessWidget {
     );
   }
 }
+
+class _ExtensionSettingsSection extends StatefulWidget {
+  final AppColors colors;
+  const _ExtensionSettingsSection({required this.colors});
+
+  @override
+  State<_ExtensionSettingsSection> createState() => _ExtensionSettingsSectionState();
+}
+
+class _ExtensionSettingsSectionState extends State<_ExtensionSettingsSection> {
+  String? _currentPairingCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final extensionService = context.watch<ExtensionService>();
+    final colors = widget.colors;
+
+    return _ModernSection(
+      title: 'Browser Extension',
+      colors: colors,
+      children: [
+        _ModernSettingsRow(
+          icon: Icons.extension_rounded,
+          iconColor: const Color(0xFF00D8FF),
+          title: 'Extension Bridge',
+          subtitle: 'Enable communication with browser',
+          trailing: Switch.adaptive(
+            value: extensionService.isEnabled,
+            onChanged: (val) => extensionService.toggle(val),
+            activeColor: colors.accent,
+          ),
+          colors: colors,
+        ),
+        if (extensionService.isEnabled)
+          _ModernSettingsRow(
+            icon: Icons.phonelink_lock_rounded,
+            iconColor: const Color(0xFFFF5252),
+            title: 'Pairing',
+            subtitle: extensionService.isPaired ? 'Device paired' : 'No device connected',
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (extensionService.isPaired)
+                  TextButton(
+                    onPressed: () {
+                      extensionService.revokePairing();
+                      setState(() {});
+                    },
+                    style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                    child: const Text('REVOKE', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                  ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _currentPairingCode = extensionService.generatePairingCode();
+                    });
+                  },
+                  child: const Text('PAIR DEVICE', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                ),
+              ],
+            ),
+            colors: colors,
+          ),
+        if (_currentPairingCode != null && extensionService.isEnabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: colors.accent.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: colors.accent.withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    'Enter this code in the extension:',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _currentPairingCode!,
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 8,
+                      color: colors.accent,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Expires in 5 minutes',
+                    style: TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+

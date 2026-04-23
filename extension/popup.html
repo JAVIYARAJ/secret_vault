@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      width: 320px;
+      padding: 0;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #000;
+      color: white;
+    }
+    .header {
+      padding: 16px;
+      background: #111;
+      border-bottom: 1px solid #222;
+      position: sticky;
+      top: 0;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      font-size: 11px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .online { background: #00E676; box-shadow: 0 0 10px #00E676; }
+    .offline { background: #FF5252; }
+    
+    .container { padding: 16px; }
+    
+    input {
+      width: 100%;
+      background: #111;
+      border: 1px solid #333;
+      color: white;
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      box-sizing: border-box;
+      font-size: 14px;
+      outline: none;
+    }
+    input:focus { border-color: #7C4DFF; }
+
+    button#pair-btn {
+      width: 100%;
+      background: #7C4DFF;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    #results { margin-top: 8px; }
+    
+    .secret-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: #111;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      border: 1px solid #222;
+      transition: all 0.2s;
+    }
+    .secret-item:hover { border-color: #333; background: #151515; }
+    
+    .secret-info { flex: 1; min-width: 0; }
+    .secret-title { font-size: 14px; font-weight: 700; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .secret-type { font-size: 10px; color: #666; text-transform: uppercase; font-weight: 800; }
+    
+    .use-btn {
+      background: #7C4DFF;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-left: 12px;
+    }
+    .use-btn:hover { background: #6E42E5; }
+
+    #pair-section, #search-section { display: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="status">
+      <div id="status-dot" class="status-dot offline"></div>
+      <span id="status-text">Connecting...</span>
+    </div>
+    <div id="search-section">
+      <input type="text" id="search" placeholder="Search secrets..." autocomplete="off">
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="pair-section">
+      <p style="font-size: 12px; color: #888; line-height: 1.5; margin-bottom: 16px;">
+        Not paired with Secret Vault desktop app. Enter the code from Settings.
+      </p>
+      <input type="text" id="pair-code" placeholder="000000" maxlength="6" style="text-align: center; font-size: 24px; letter-spacing: 4px;">
+      <button id="pair-btn">PAIR WITH VAULT</button>
+    </div>
+
+    <div id="results"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'blocs/auth/auth_bloc.dart';
@@ -22,6 +24,8 @@ import 'services/export_service.dart';
 import 'services/import_service.dart';
 import 'services/clipboard_service.dart';
 import 'services/tag_service.dart';
+import 'services/extension_service.dart';
+import 'widgets/extension_approval_dialog.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +54,8 @@ void main() async {
   final exportService = ExportService(storageService, encryptionService);
   final clipboardService = ClipboardService();
   final tagService = TagService();
+  final extensionService = ExtensionService(storageService, encryptionService);
+  await extensionService.start();
 
   runApp(MyApp(
     storageService: storageService,
@@ -57,6 +63,7 @@ void main() async {
     exportService: exportService,
     clipboardService: clipboardService,
     tagService: tagService,
+    extensionService: extensionService,
   ));
 }
 
@@ -66,6 +73,9 @@ class MyApp extends StatelessWidget {
   final ExportService exportService;
   final ClipboardService clipboardService;
   final TagService tagService;
+  final ExtensionService extensionService;
+  
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   const MyApp({
     super.key,
@@ -74,18 +84,23 @@ class MyApp extends StatelessWidget {
     required this.exportService,
     required this.clipboardService,
     required this.tagService,
+    required this.extensionService,
   });
 
   @override
   Widget build(BuildContext context) {
-    return MultiRepositoryProvider(
+    return MultiProvider(
       providers: [
-        RepositoryProvider.value(value: storageService),
-        RepositoryProvider.value(value: encryptionService),
-        RepositoryProvider.value(value: exportService),
-        RepositoryProvider.value(value: clipboardService),
-        RepositoryProvider.value(value: tagService),
+        ChangeNotifierProvider.value(value: extensionService),
       ],
+      child: MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider.value(value: storageService),
+          RepositoryProvider.value(value: encryptionService),
+          RepositoryProvider.value(value: exportService),
+          RepositoryProvider.value(value: clipboardService),
+          RepositoryProvider.value(value: tagService),
+        ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<AuthBloc>(
@@ -125,21 +140,77 @@ class MyApp extends StatelessWidget {
               isDarkMode = state.isDarkMode;
             }
 
-            return Listener(
-              onPointerDown: (_) => context.read<AuthBloc>().userActivityDetected(),
-              onPointerMove: (_) => context.read<AuthBloc>().userActivityDetected(),
-              child: MaterialApp(
-                title: 'Secret Vault',
-                debugShowCheckedModeBanner: false,
-                themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-                theme: AppTheme.light,
-                darkTheme: AppTheme.dark,
-                home: const LockScreen(),
+            return _ExtensionRequestListener(
+              extensionService: extensionService,
+              child: Listener(
+                onPointerDown: (_) => context.read<AuthBloc>().userActivityDetected(),
+                onPointerMove: (_) => context.read<AuthBloc>().userActivityDetected(),
+                child: MaterialApp(
+                  navigatorKey: MyApp.navigatorKey,
+                  title: 'Secret Vault',
+                  debugShowCheckedModeBanner: false,
+                  themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+                  theme: AppTheme.light,
+                  darkTheme: AppTheme.dark,
+                  home: const LockScreen(),
+                ),
               ),
             );
           },
         ),
       ),
-    );
+    ),
+  );
+}
+}
+
+class _ExtensionRequestListener extends StatefulWidget {
+  final ExtensionService extensionService;
+  final Widget child;
+
+  const _ExtensionRequestListener({
+    required this.extensionService,
+    required this.child,
+  });
+
+  @override
+  State<_ExtensionRequestListener> createState() => _ExtensionRequestListenerState();
+}
+
+class _ExtensionRequestListenerState extends State<_ExtensionRequestListener> {
+  StreamSubscription? _subscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscription = widget.extensionService.requests.listen(_handleRequest);
   }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
+  void _handleRequest(ExtensionRequest request) async {
+    final context = MyApp.navigatorKey.currentContext;
+    if (context == null) {
+      request.completer.complete(false);
+      return;
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ExtensionApprovalDialog(
+        origin: request.origin,
+        secretTitle: request.secretTitle,
+      ),
+    );
+
+    request.completer.complete(result ?? false);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
