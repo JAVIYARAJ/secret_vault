@@ -519,6 +519,17 @@ class _ModernTopBar extends StatelessWidget {
               Expanded(
                 child: _SearchBar(colors: colors, isDark: isDark),
               ),
+              const SizedBox(width: 12),
+              _TopBarAction(
+                icon: Icons.sync_rounded,
+                onTap: () {
+                  final projectState = context.read<ProjectBloc>().state;
+                  final currentId = projectState is ProjectLoaded ? projectState.selectedProjectId : null;
+                  context.read<SecretBloc>().add(LoadSecrets(currentId));
+                  AppToast.show(context, message: 'Vault synchronized!', type: ToastType.success);
+                },
+                colors: colors,
+              ),
             ],
           ),
         ),
@@ -658,45 +669,6 @@ class _TopBarActionState extends State<_TopBarAction> {
           child: Icon(widget.icon, 
               size: 22, 
               color: _isHovered ? widget.colors.accent : Colors.grey.shade600),
-        ),
-      ),
-    );
-  }
-}
-
-class _UserAvatar extends StatelessWidget {
-  final AppColors colors;
-  const _UserAvatar({required this.colors});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [colors.accent, const Color(0xFF00D8FF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white,
-        ),
-        child: Center(
-          child: Text(
-            'RJ', 
-            style: TextStyle(
-              color: colors.accent, 
-              fontWeight: FontWeight.w900, 
-              fontSize: 12,
-              letterSpacing: -0.5,
-            )
-          ),
         ),
       ),
     );

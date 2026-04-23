@@ -1,126 +1,354 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <style>
-    body {
-      width: 320px;
-      padding: 0;
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #000;
-      color: white;
-    }
-    .header {
-      padding: 16px;
-      background: #111;
-      border-bottom: 1px solid #222;
-      position: sticky;
-      top: 0;
-    }
-    .status {
-      display: flex;
-      align-items: center;
-      font-size: 11px;
-      margin-bottom: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      font-weight: 700;
-    }
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      margin-right: 6px;
-    }
-    .online { background: #00E676; box-shadow: 0 0 10px #00E676; }
-    .offline { background: #FF5252; }
-    
-    .container { padding: 16px; }
-    
-    input {
-      width: 100%;
-      background: #111;
-      border: 1px solid #333;
-      color: white;
-      padding: 12px;
-      border-radius: 12px;
-      margin-bottom: 12px;
-      box-sizing: border-box;
-      font-size: 14px;
-      outline: none;
-    }
-    input:focus { border-color: #7C4DFF; }
+<meta charset="utf-8">
+<title>Secret Vault</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    button#pair-btn {
-      width: 100%;
-      background: #7C4DFF;
-      color: white;
-      border: none;
-      padding: 12px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 800;
-      font-size: 13px;
-    }
+  body {
+    width: 340px;
+    min-height: 200px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #09090f;
+    color: #e8e8ec;
+  }
 
-    #results { margin-top: 8px; }
-    
-    .secret-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px;
-      background: #111;
-      border-radius: 12px;
-      margin-bottom: 8px;
-      border: 1px solid #222;
-      transition: all 0.2s;
-    }
-    .secret-item:hover { border-color: #333; background: #151515; }
-    
-    .secret-info { flex: 1; min-width: 0; }
-    .secret-title { font-size: 14px; font-weight: 700; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .secret-type { font-size: 10px; color: #666; text-transform: uppercase; font-weight: 800; }
-    
-    .use-btn {
-      background: #7C4DFF;
-      color: white;
-      border: none;
-      padding: 6px 14px;
-      border-radius: 8px;
-      font-size: 11px;
-      font-weight: 800;
-      cursor: pointer;
-      margin-left: 12px;
-    }
-    .use-btn:hover { background: #6E42E5; }
+  /* ── Header ─────────────────────────────────────────── */
+  .header {
+    padding: 14px 16px;
+    background: #111118;
+    border-bottom: 1px solid #1e1e2e;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo {
+    width: 30px; height: 30px;
+    background: linear-gradient(135deg, #7c6af7, #5b4de0);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .header-title { font-size: 14px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-sub   { font-size: 10px; color: #55556a; margin-top: 1px; }
 
-    #pair-section, #search-section { display: none; }
-  </style>
+  /* ── Sync bar ────────────────────────────────────────── */
+  .sync-bar {
+    padding: 7px 14px;
+    background: #0d0d16;
+    border-bottom: 1px solid #18182a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #44445a;
+  }
+  .sync-left { display: flex; align-items: center; gap: 5px; }
+  .sync-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .sync-ok  { background: #34d399; box-shadow: 0 0 6px #34d39960; }
+  .sync-no  { background: #f87171; }
+
+  .sync-btn {
+    background: #1a1a28;
+    border: 0.5px solid #2a2a40;
+    color: #777;
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-size: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .sync-btn:hover:not(:disabled) { background: #22223a; color: #aaa; }
+  .sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── No-vault screen ─────────────────────────────────── */
+  #no-vault-screen { padding: 20px 16px; text-align: center; }
+  .empty-icon  { font-size: 36px; margin-bottom: 10px; }
+  .empty-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .empty-sub   { font-size: 11px; color: #55556a; line-height: 1.6; }
+
+  /* Prominent desktop-app notice banner */
+  .desktop-notice {
+    margin: 14px 0;
+    background: linear-gradient(135deg, #1a1030, #120d28);
+    border: 1px solid #7c6af755;
+    border-radius: 12px;
+    padding: 14px;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+  }
+  .desktop-notice::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, #7c6af7, #5b4de0, #7c6af7);
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .notice-row {
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .notice-icon {
+    font-size: 22px; flex-shrink: 0; margin-top: 1px;
+    animation: pulse-icon 2s ease-in-out infinite;
+  }
+  @keyframes pulse-icon {
+    0%, 100% { transform: scale(1); }
+    50%       { transform: scale(1.15); }
+  }
+  .notice-body { flex: 1; }
+  .notice-title {
+    font-size: 12px; font-weight: 700; color: #c4b8ff;
+    margin-bottom: 3px;
+  }
+  .notice-msg {
+    font-size: 11px; color: #7070a0; line-height: 1.5;
+  }
+  .notice-msg b { color: #9988ee; }
+
+  .steps {
+    margin-top: 4px; text-align: left;
+    background: #111118; border: 1px solid #1e1e2e;
+    border-radius: 10px; padding: 12px 14px;
+  }
+  .step {
+    font-size: 11px; color: #66667a;
+    display: flex; gap: 8px; margin-bottom: 8px; line-height: 1.5;
+  }
+  .step:last-child { margin-bottom: 0; }
+  .step-num {
+    width: 17px; height: 17px; border-radius: 50%;
+    background: #7c6af7; color: white;
+    font-size: 9px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+
+  /* ── Unlock screen ───────────────────────────────────── */
+  #unlock-screen { padding: 22px 16px; }
+  .unlock-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .unlock-sub   { font-size: 11px; color: #55556a; margin-bottom: 18px; line-height: 1.5; }
+
+  .input-wrap { position: relative; margin-bottom: 10px; }
+  .input-wrap input {
+    width: 100%;
+    background: #111118;
+    border: 1px solid #2a2a3a;
+    color: #e8e8ec;
+    padding: 11px 40px 11px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .input-wrap input:focus { border-color: #7c6af7; }
+  .eye-btn {
+    position: absolute; right: 10px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    color: #55556a; cursor: pointer;
+    font-size: 14px; padding: 4px;
+    transition: color 0.15s;
+  }
+  .eye-btn:hover { color: #999; }
+
+  .error-msg {
+    font-size: 11px; color: #f87171;
+    margin-bottom: 10px; display: none; min-height: 16px;
+  }
+
+  .primary-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #7c6af7, #5b4de0);
+    color: white; border: none;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .primary-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+  .primary-btn:active:not(:disabled) { transform: translateY(0); }
+  .primary-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Main screen ─────────────────────────────────────── */
+  #main-screen { display: none; }
+
+  .search-wrap { padding: 12px 14px 8px; }
+  .search-container { position: relative; }
+  .search-icon {
+    position: absolute; left: 11px; top: 50%;
+    transform: translateY(-50%);
+    color: #44445a; font-size: 13px;
+    pointer-events: none;
+  }
+  .search-container input {
+    width: 100%;
+    background: #111118;
+    border: 1px solid #1e1e2e;
+    color: #e8e8ec;
+    padding: 10px 12px 10px 32px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-container input:focus { border-color: #7c6af7; }
+
+  #secrets-list {
+    padding: 0 14px 10px;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  #secrets-list::-webkit-scrollbar { width: 4px; }
+  #secrets-list::-webkit-scrollbar-track { background: transparent; }
+  #secrets-list::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
+
+  .secret-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 11px;
+    background: #111118;
+    border: 1px solid #1e1e2e;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    transition: border-color 0.15s, background 0.15s;
+    cursor: default;
+  }
+  .secret-item:hover { border-color: #2e2e48; background: #14141f; }
+
+  .secret-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: #1a1a2a;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .secret-info { flex: 1; min-width: 0; }
+  .secret-title {
+    font-size: 12px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .secret-meta { font-size: 10px; color: #44445a; margin-top: 2px; }
+
+  .fill-btn {
+    background: #7c6af7;
+    color: white; border: none;
+    padding: 6px 11px;
+    border-radius: 7px;
+    font-size: 11px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    white-space: nowrap;
+    transition: opacity 0.15s, transform 0.1s;
+    flex-shrink: 0;
+  }
+  .fill-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+  .empty-results {
+    text-align: center; padding: 24px 0;
+    font-size: 11px; color: #44445a;
+  }
+
+  .footer-bar {
+    padding: 8px 14px;
+    border-top: 1px solid #18182a;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .lock-btn {
+    background: none; border: none;
+    color: #44445a; font-size: 11px;
+    cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; gap: 4px;
+    transition: color 0.15s;
+  }
+  .lock-btn:hover { color: #f87171; }
+  .secret-count { font-size: 10px; color: #333; }
+</style>
 </head>
 <body>
-  <div class="header">
-    <div class="status">
-      <div id="status-dot" class="status-dot offline"></div>
-      <span id="status-text">Connecting...</span>
-    </div>
-    <div id="search-section">
-      <input type="text" id="search" placeholder="Search secrets..." autocomplete="off">
+
+<div class="header">
+  <div class="logo">🔐</div>
+  <div>
+    <div class="header-title">Secret Vault</div>
+    <div class="header-sub" id="header-sub">Loading...</div>
+  </div>
+</div>
+
+<div class="sync-bar">
+  <div class="sync-left">
+    <span class="sync-dot sync-no" id="sync-dot"></span>
+    <span id="sync-status">Never synced</span>
+  </div>
+  <button class="sync-btn" id="sync-btn" title="Sync from desktop app">↻ Sync</button>
+</div>
+
+<!-- ① No vault yet -->
+<div id="no-vault-screen" style="display:none;">
+  <div class="empty-icon">🔐</div>
+  <div class="empty-title">Vault Not Synced</div>
+  <div class="empty-sub">Your secrets are waiting in the desktop app.</div>
+
+  <!-- Prominent banner -->
+  <div class="desktop-notice">
+    <div class="notice-row">
+      <div class="notice-icon">🖥️</div>
+      <div class="notice-body">
+        <div class="notice-title">Please open the Secret Vault desktop app</div>
+        <div class="notice-msg">
+          Unlock it, then click <b>↻ Sync</b> above to copy your
+          encrypted vault to this extension.
+          After the first sync you never need the desktop app open again.
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="container">
-    <div id="pair-section">
-      <p style="font-size: 12px; color: #888; line-height: 1.5; margin-bottom: 16px;">
-        Not paired with Secret Vault desktop app. Enter the code from Settings.
-      </p>
-      <input type="text" id="pair-code" placeholder="000000" maxlength="6" style="text-align: center; font-size: 24px; letter-spacing: 4px;">
-      <button id="pair-btn">PAIR WITH VAULT</button>
-    </div>
-
-    <div id="results"></div>
+  <div class="steps">
+    <div class="step"><div class="step-num">1</div><span>Open &amp; unlock <b>Secret Vault</b> desktop app</span></div>
+    <div class="step"><div class="step-num">2</div><span>Click <b>↻ Sync</b> button above ↑</span></div>
+    <div class="step"><div class="step-num">3</div><span>Enter master password → done ✅</span></div>
   </div>
+</div>
 
-  <script src="popup.js"></script>
+<!-- ② Enter master password -->
+<div id="unlock-screen" style="display:none;">
+  <div class="unlock-title">Enter master password</div>
+  <div class="unlock-sub">Your encrypted vault is stored locally. Enter your master password to unlock — no internet needed.</div>
+  <div class="input-wrap">
+    <input type="password" id="master-password" placeholder="Master password…" autocomplete="current-password">
+    <button class="eye-btn" id="eye-btn" title="Toggle visibility">👁</button>
+  </div>
+  <div class="error-msg" id="error-msg">Wrong password. Please try again.</div>
+  <button class="primary-btn" id="unlock-btn">Unlock Vault</button>
+</div>
+
+<!-- ③ Unlocked — search & fill -->
+<div id="main-screen">
+  <div class="search-wrap">
+    <div class="search-container">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search" placeholder="Search secrets…" autocomplete="off" autofocus>
+    </div>
+  </div>
+  <div id="secrets-list"></div>
+  <div class="footer-bar">
+    <button class="lock-btn" id="lock-btn">🔒 Lock</button>
+    <span class="secret-count" id="secret-count"></span>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="crypto.js"></script>
+<script src="popup.js"></script>
 </body>
 </html>

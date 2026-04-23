@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
+import '../models/secret.dart';
+import 'extension_config.dart';
 import 'storage_service.dart';
 import 'encryption_service.dart';
 
@@ -25,20 +28,28 @@ class ExtensionService extends ChangeNotifier {
   final EncryptionService _encryptionService;
   
   HttpServer? _server;
-  final int _port = 42042;
+  final int _port = ExtensionConfig.serverPort;
   
   bool _isEnabled = false;
-  String? _pairingCode;
-  String? _pairedKey; // The shared secret once paired
-  
+
+  // Increments on every vault change (save/delete) so the extension
+  // can detect staleness without downloading the full vault.
+  int _vaultVersion = 0;
+  int get vaultVersion => _vaultVersion;
+
+  // Called by BLoC after every save/delete to bump the version.
+  void markVaultChanged() {
+    _vaultVersion++;
+    notifyListeners();
+  }
+
+  // Legacy: approval request stream (kept for backward compat)
   final _requestController = StreamController<ExtensionRequest>.broadcast();
   Stream<ExtensionRequest> get requests => _requestController.stream;
 
   ExtensionService(this._storageService, this._encryptionService);
 
   bool get isEnabled => _isEnabled;
-  String? get pairingCode => _pairingCode;
-  bool get isPaired => _pairedKey != null;
 
   Future<void> start() async {
     if (_server != null) return;
@@ -46,7 +57,6 @@ class ExtensionService extends ChangeNotifier {
     _isEnabled = _storageService.settingsBox.get('extension_enabled', defaultValue: false);
     if (!_isEnabled) return;
 
-    _pairedKey = _storageService.settingsBox.get('extension_paired_key');
 
     try {
       _server = await HttpServer.bind(InternetAddress.loopbackIPv4, _port);
@@ -76,23 +86,6 @@ class ExtensionService extends ChangeNotifier {
     notifyListeners();
   }
 
-  String generatePairingCode() {
-    final random = Random();
-    _pairingCode = (100000 + random.nextInt(900000)).toString();
-    // Pairing code expires in 5 minutes
-    Timer(const Duration(minutes: 5), () {
-      _pairingCode = null;
-      notifyListeners();
-    });
-    notifyListeners();
-    return _pairingCode!;
-  }
-
-  void revokePairing() {
-    _pairedKey = null;
-    _storageService.settingsBox.delete('extension_paired_key');
-    notifyListeners();
-  }
 
   Future<void> _handleRequest(HttpRequest request) async {
     // Basic CORS
@@ -110,13 +103,15 @@ class ExtensionService extends ChangeNotifier {
     
     try {
       if (path == '/status') {
-        _sendResponse(request, {'status': 'ok', 'paired': isPaired});
-      } else if (path == '/pair') {
-        await _handlePairing(request);
-      } else if (path == '/secrets') {
-        await _handleGetSecrets(request);
-      } else if (path == '/get-credential') {
-        await _handleGetCredential(request);
+        _sendResponse(request, {'status': 'ok'});
+      } else if (path == '/export-vault') {
+        await _handleExportVault(request);
+      } else if (path == '/vault-version') {
+        _handleVaultVersion(request);
+      } else if (path == '/add-secret') {
+        await _handleAddSecret(request);
+      } else if (path == '/projects') {
+        _handleGetProjects(request);
       } else {
         request.response.statusCode = HttpStatus.notFound;
         await request.response.close();
@@ -126,100 +121,250 @@ class ExtensionService extends ChangeNotifier {
     }
   }
 
-  Future<void> _handlePairing(HttpRequest request) async {
-    if (request.method != 'POST') {
-      _sendResponse(request, {'error': 'Method not allowed'}, status: HttpStatus.methodNotAllowed);
+
+  // ── Export vault (new standalone architecture) ────────────────────────────
+  //
+  // Returns the already-encrypted vault so the extension can decrypt it
+  // locally using the master password — no plaintext ever leaves the app.
+  Future<void> _handleExportVault(HttpRequest request) async {
+    if (!_isEnabled) {
+      _sendResponse(request, {'error': 'Extension not enabled'},
+          status: HttpStatus.forbidden);
       return;
     }
 
-    final body = await _parseBody(request);
-    final code = body['code'];
-
-    if (_pairingCode != null && code == _pairingCode) {
-      _pairedKey = _encryptionService.generateRandomKey(32);
-      await _storageService.settingsBox.put('extension_paired_key', _pairedKey);
-      _pairingCode = null; // Use once
-      _sendResponse(request, {'status': 'success', 'key': _pairedKey});
-    } else {
-      _sendResponse(request, {'status': 'error', 'message': 'Invalid or expired code'}, status: HttpStatus.unauthorized);
+    if (!_encryptionService.isInitialized) {
+      _sendResponse(
+        request,
+        {'error': 'Vault is locked. Unlock the desktop app first.'},
+        status: HttpStatus.forbidden,
+      );
+      return;
     }
-  }
 
-  Future<void> _handleGetSecrets(HttpRequest request) async {
-    if (!await _authenticate(request)) return;
+    final allSecrets  = _storageService.getAllSecrets();
+    final allProjects = {
+      for (final p in _storageService.getProjects()) p.id: p.name
+    };
 
-    final query = request.uri.queryParameters['q']?.toLowerCase() ?? '';
-    final allSecrets = _storageService.getAllSecrets();
-    
-    // Simple domain matching for the extension
-    final matches = allSecrets.where((s) {
-      final title = s.title.toLowerCase();
-      return title.contains(query);
-    }).map((s) => {
+    // Export secrets with their ALREADY-encrypted field values.
+    // The extension decrypts them using the master password via WebCrypto.
+    final vault = allSecrets.map((s) => {
       'id': s.id,
       'title': s.title,
       'type': s.type.name,
+      'projectName': allProjects[s.projectId] ?? 'Unknown',
+      'tags': s.tags ?? [],
+      'fields': s.fields.map((f) => {
+        'label': f.label,
+        'isSecret': f.isSecret,
+        // Already in "iv_base64:cipher_base64" format from encryptValue()
+        'encryptedValue': f.encryptedValue,
+      }).toList(),
     }).toList();
 
-    _sendResponse(request, {'secrets': matches});
+    // Verification token: encrypt a known string so the extension can verify
+    // the master password before attempting to decrypt every field.
+    final verificationToken =
+        _encryptionService.encryptValue('secret_vault_verified');
+
+    _sendResponse(request, {
+      'vault': vault,
+      'verificationToken': verificationToken,
+      'vaultVersion': _vaultVersion,   // extension uses this to detect changes
+    });
   }
 
-  Future<void> _handleGetCredential(HttpRequest request) async {
-    if (!await _authenticate(request)) return;
-
-    final body = await _parseBody(request);
-    final secretId = body['id'];
-    final origin = body['origin'] ?? 'Unknown';
-
-    final secret = _storageService.secretsBox.get(secretId);
-    if (secret == null) {
-      _sendResponse(request, {'error': 'Secret not found'}, status: HttpStatus.notFound);
+  // ── Add secret from extension ──────────────────────────────────────────
+  //
+  // Receives { title, username, password } in plaintext from extension.
+  // Encrypts and saves it to the local vault.
+  Future<void> _handleAddSecret(HttpRequest request) async {
+    if (!_isEnabled) {
+      _sendResponse(request, {'error': 'Extension not enabled'}, status: HttpStatus.forbidden);
       return;
     }
 
-    // Request approval from user
-    final completer = Completer<bool>();
-    _requestController.add(ExtensionRequest(
-      id: secretId,
-      origin: origin,
-      secretTitle: secret.title,
-      completer: completer,
-    ));
+    if (!_encryptionService.isInitialized) {
+      _sendResponse(request, {'error': 'Vault is locked'}, status: HttpStatus.forbidden);
+      return;
+    }
 
-    final approved = await completer.future;
+    if (request.method != 'POST') {
+      _sendResponse(request, {'error': 'POST expected'}, status: HttpStatus.methodNotAllowed);
+      return;
+    }
 
-    if (approved) {
-      if (!_encryptionService.isInitialized) {
-        _sendResponse(request, {'status': 'error', 'message': 'Vault is locked'}, status: HttpStatus.forbidden);
+    final body = await _parseBody(request);
+    final title = body['title'] ?? 'Captured Login';
+    final user  = body['username'] ?? '';
+    final pass  = body['password'] ?? '';
+    final existingId = body['existingId'];
+    final targetProjectId = body['projectId'];
+
+    if (pass.isEmpty) {
+      _sendResponse(request, {'error': 'Password is required'}, status: HttpStatus.badRequest);
+      return;
+    }
+
+    final now = DateTime.now();
+
+    // ── DUPLICATE & AUTO-UPDATE CHECK (Server-side safety) ──
+    final allSecrets = _storageService.getAllSecrets();
+    final normalizedTitle = title.toLowerCase().trim().replaceFirst('www.', '');
+    final normalizedUser  = user.toLowerCase().trim();
+    final normalizedPass  = pass.trim();
+
+    Secret? duplicateMatch;
+    Secret? updateMatch;
+
+    for (final s in allSecrets) {
+      final sTitle = s.title.toLowerCase().trim().replaceFirst('www.', '');
+      if (!sTitle.contains(normalizedTitle) && !normalizedTitle.contains(sTitle)) continue;
+
+      String? sUser;
+      String? sPass;
+      for (final f in s.fields) {
+        final label = f.label.toLowerCase();
+        final val = _encryptionService.decryptValue(f.encryptedValue);
+        if (label.contains('user') || label.contains('email') || label.contains('login')) sUser = val;
+        if (label.contains('password') || label.contains('pass')) sPass = val;
+      }
+
+      if (sUser?.toLowerCase().trim() == normalizedUser) {
+        if (sPass?.trim() == normalizedPass) {
+          duplicateMatch = s;
+          break;
+        }
+        updateMatch = s;
+      }
+    }
+
+    if (duplicateMatch != null) {
+      _sendResponse(request, {'status': 'success', 'id': duplicateMatch.id, 'info': 'Duplicate ignored'});
+      return;
+    }
+
+    final effectiveExistingId = existingId ?? updateMatch?.id;
+
+    if (effectiveExistingId != null) {
+      // ── UPDATE EXISTING ──
+      final existingSecret = _storageService.secretsBox.get(effectiveExistingId);
+      if (existingSecret != null) {
+        final updatedFields = List<SecretField>.from(existingSecret.fields);
+        
+        // Update password field
+        final passIndex = updatedFields.indexWhere((f) => f.label.toLowerCase().contains('pass'));
+        if (passIndex != -1) {
+          updatedFields[passIndex] = updatedFields[passIndex].copyWith(
+            encryptedValue: _encryptionService.encryptValue(pass),
+          );
+        }
+
+        // Update username if it exists
+        if (user.isNotEmpty) {
+          final userIndex = updatedFields.indexWhere((f) => 
+            f.label.toLowerCase().contains('user') || f.label.toLowerCase().contains('email'));
+          if (userIndex != -1) {
+            updatedFields[userIndex] = updatedFields[userIndex].copyWith(
+              encryptedValue: _encryptionService.encryptValue(user),
+            );
+          }
+        }
+
+        final updatedSecret = existingSecret.copyWith(
+          fields: updatedFields,
+          updatedAt: now,
+        );
+        await _storageService.saveSecret(updatedSecret);
+        markVaultChanged();
+        _sendResponse(request, {'status': 'updated', 'id': existingId});
+        debugPrint('[ExtensionService] Updated existing secret: ${updatedSecret.title}');
         return;
       }
-
-      final data = <String, String>{};
-      for (final field in secret.fields) {
-        try {
-          data[field.label.toLowerCase()] = _encryptionService.decryptValue(field.encryptedValue);
-        } catch (_) {}
-      }
-      
-      if (data.isEmpty) {
-        _sendResponse(request, {'status': 'error', 'message': 'No data found in secret'}, status: HttpStatus.notFound);
-        return;
-      }
-
-      _sendResponse(request, {'status': 'approved', 'data': data});
-    } else {
-      _sendResponse(request, {'status': 'denied'}, status: HttpStatus.forbidden);
     }
+
+    // ── CREATE NEW (Fallback or no existingId) ──
+    // Determine target project
+    final projects = _storageService.getProjects();
+    if (projects.isEmpty) {
+      _sendResponse(request, {'error': 'No projects found in desktop app'}, status: HttpStatus.badRequest);
+      return;
+    }
+    
+    // Use the provided projectId, or fallback to the first project
+    String projectId = targetProjectId ?? projects.first.id;
+    // Verify project exists
+    if (!projects.any((p) => p.id == projectId)) {
+      projectId = projects.first.id;
+    }
+
+    final fields = [
+      if (user.isNotEmpty)
+        SecretField(
+          id: const Uuid().v4(),
+          label: 'Email / Username',
+          encryptedValue: _encryptionService.encryptValue(user),
+          isSecret: false,
+        ),
+      SecretField(
+        id: const Uuid().v4(),
+        label: 'Password',
+        encryptedValue: _encryptionService.encryptValue(pass),
+        isSecret: true,
+      ),
+      SecretField(
+        id: const Uuid().v4(),
+        label: 'Website URL',
+        encryptedValue: _encryptionService.encryptValue(title),
+        isSecret: false,
+      ),
+    ];
+
+    final newSecret = Secret(
+      id: const Uuid().v4(),
+      projectId: projectId,
+      title: title,
+      typeIndex: 0, // Login type
+      fields: fields,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    await _storageService.saveSecret(newSecret);
+    markVaultChanged(); // Triggers sync and UI refresh
+
+    _sendResponse(request, {'status': 'success', 'id': newSecret.id});
+    debugPrint('[ExtensionService] Added new secret: ${newSecret.title}');
   }
 
-  Future<bool> _authenticate(HttpRequest request) async {
-    final auth = request.headers.value('Authorization');
-    if (auth != null && auth == 'Bearer $_pairedKey') {
-      return true;
+  // Lightweight poll endpoint — returns current vault version.
+  // Extension background worker calls this every 30 min to check if
+  // a full re-sync is needed, without downloading the whole vault.
+  void _handleVaultVersion(HttpRequest request) {
+    if (!_isEnabled) {
+      _sendResponse(request, {'error': 'Extension not enabled'},
+          status: HttpStatus.forbidden);
+      return;
     }
-    _sendResponse(request, {'error': 'Unauthorized'}, status: HttpStatus.unauthorized);
-    return false;
+    _sendResponse(request, {
+      'version': _vaultVersion,
+      'locked': !_encryptionService.isInitialized,
+      'secretCount': _storageService.getAllSecrets().length,
+    });
   }
+
+  void _handleGetProjects(HttpRequest request) {
+    if (!_isEnabled) {
+      _sendResponse(request, {'error': 'Extension not enabled'}, status: HttpStatus.forbidden);
+      return;
+    }
+    final projects = _storageService.getProjects();
+    _sendResponse(request, {
+      'projects': projects.map((p) => {'id': p.id, 'name': p.name}).toList(),
+    });
+  }
+
 
   void _sendResponse(HttpRequest request, Map<String, dynamic> data, {int status = HttpStatus.ok}) {
     request.response.statusCode = status;

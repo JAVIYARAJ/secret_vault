@@ -240,7 +240,7 @@ class SecretBloc extends Bloc<SecretEvent, SecretState> {
   }
 
   void _onUpdateSecret(UpdateSecret event, Emitter<SecretState> emit) async {
-    if (_currentProjectId == null) return;
+    // NOTE: _currentProjectId may be null when on "All Secrets" view — do NOT guard on it.
     final currentState = state;
 
     try {
@@ -254,7 +254,12 @@ class SecretBloc extends Bloc<SecretEvent, SecretState> {
 
       await _storageService.saveSecret(updatedSecret);
 
-      _allProjectSecrets = _storageService.getSecrets(_currentProjectId!);
+      // Reload from the same scope as the current view
+      if (_currentProjectId == null) {
+        _allProjectSecrets = _storageService.getAllSecrets();
+      } else {
+        _allProjectSecrets = _storageService.getSecrets(_currentProjectId!);
+      }
 
       if (currentState is SecretLoaded) {
         final filtered = _filterSecrets(_allProjectSecrets, currentState.searchQuery, currentState.filterType);
@@ -269,13 +274,18 @@ class SecretBloc extends Bloc<SecretEvent, SecretState> {
   }
 
   void _onDeleteSecret(DeleteSecret event, Emitter<SecretState> emit) async {
-    if (_currentProjectId == null) return;
+    // NOTE: _currentProjectId is null when viewing "All Secrets" — do NOT guard on it.
     final currentState = state;
 
     try {
       await _storageService.deleteSecret(event.id);
 
-      _allProjectSecrets = _storageService.getSecrets(_currentProjectId!);
+      // Reload from the same scope as the current view
+      if (_currentProjectId == null) {
+        _allProjectSecrets = _storageService.getAllSecrets();
+      } else {
+        _allProjectSecrets = _storageService.getSecrets(_currentProjectId!);
+      }
 
       if (currentState is SecretLoaded) {
         final filtered = _filterSecrets(_allProjectSecrets, currentState.searchQuery, currentState.filterType);

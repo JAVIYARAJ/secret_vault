@@ -1,18 +1,38 @@
 {
   "manifest_version": 3,
-  "name": "Secret Vault Connector",
+  "name": "Secret Vault",
   "version": "1.0",
-  "description": "Companion extension for Secret Vault Desktop",
-  "permissions": ["storage", "activeTab"],
-  "host_permissions": ["http://localhost:42042/*"],
+  "description": "Secret Vault — use your secrets anywhere, no desktop app needed",
+  "icons": {
+    "16":  "icon16.png",
+    "48":  "icon48.png",
+    "128": "icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://localhost:42042/*"
+  ],
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "icon.png"
+    "default_icon": {
+      "16":  "icon16.png",
+      "48":  "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "js": ["content.js"],
+      "run_at": "document_idle"
     }
   ]
 }
