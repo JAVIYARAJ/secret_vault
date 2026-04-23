@@ -10,7 +10,6 @@ import 'blocs/secret/secret_bloc.dart';
 import 'blocs/settings/settings_bloc.dart';
 import 'blocs/settings/settings_event.dart';
 import 'blocs/settings/settings_state.dart';
-import 'blocs/audit/audit_bloc.dart';
 import 'blocs/search/search_bloc.dart';
 import 'blocs/import/import_bloc.dart';
 
@@ -96,17 +95,11 @@ class MyApp extends StatelessWidget {
           BlocProvider<ProjectBloc>(
             create: (context) => ProjectBloc(storageService),
           ),
-          BlocProvider<AuditBloc>(
-            create: (context) => AuditBloc(),
-          ),
           BlocProvider<SearchBloc>(
             create: (context) => SearchBloc(storageService),
           ),
           BlocProvider<SecretBloc>(
-            create: (context) {
-              final auditBloc = context.read<AuditBloc>();
-              return SecretBloc(storageService, encryptionService, auditBloc, clipboardService);
-            },
+            create: (context) => SecretBloc(storageService, encryptionService, clipboardService),
           ),
           BlocProvider<ImportBloc>(
             create: (context) => ImportBloc(ImportService(storageService, encryptionService)),

@@ -107,14 +107,6 @@ class FilterByType extends SecretEvent {
   List<Object?> get props => [type];
 }
 
-class LogSecretAccess extends SecretEvent {
-  final String secretId;
-  const LogSecretAccess(this.secretId);
-
-  @override
-  List<Object?> get props => [secretId];
-}
-
 class SetExpandedSecret extends SecretEvent {
   final String? secretId;
   const SetExpandedSecret(this.secretId);

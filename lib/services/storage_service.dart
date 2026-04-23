@@ -4,13 +4,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../models/project.dart';
 import '../models/secret.dart';
-import '../models/audit_entry.dart';
 
 class StorageService {
   static const String _projectsBoxName = 'projectsBox';
   static const String _secretsBoxName = 'secretsBox';
   static const String _settingsBoxName = 'settingsBox';
-  static const String _auditBoxName = 'audit_log';
 
   // Increment this constant whenever the Secret / SecretField Hive schema changes.
   // On next launch, the old secrets box will be deleted automatically.
@@ -23,15 +21,12 @@ class StorageService {
   late Box<Project> projectsBox;
   late Box<Secret> secretsBox;
   late Box settingsBox;
-  late Box<AuditEntry> auditBox;
 
   Future<void> init() async {
     await Hive.initFlutter();
     Hive.registerAdapter(ProjectAdapter());
     Hive.registerAdapter(SecretAdapter());
     Hive.registerAdapter(SecretFieldAdapter());
-    Hive.registerAdapter(AuditEntryAdapter());
-    Hive.registerAdapter(AuditActionAdapter());
 
     settingsBox = await Hive.openBox(_settingsBoxName);
 
@@ -50,8 +45,6 @@ class StorageService {
       await settingsBox.put(_projectsSchemaVersionKey, _currentProjectsSchemaVersion);
     }
     projectsBox = await Hive.openBox<Project>(_projectsBoxName);
-
-    auditBox = await Hive.openBox<AuditEntry>(_auditBoxName);
   }
 
   Future<void> _deleteBoxFiles(String boxName) async {

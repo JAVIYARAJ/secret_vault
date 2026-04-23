@@ -25,7 +25,7 @@ import 'lock_screen.dart';
 import '../widgets/spotlight_search.dart';
 import '../widgets/project_tree.dart';
 import '../services/clipboard_service.dart';
-import 'audit_log_screen.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -286,9 +286,7 @@ class _Sidebar extends StatelessWidget {
             );
           },
         ),
-        _SidebarItem(icon: Icons.history_rounded, label: 'Audit Logs', onTap: () {
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuditLogScreen()));
-        }, colors: colors),
+        const SizedBox(height: 8),
 
         const SizedBox(height: 20),
         

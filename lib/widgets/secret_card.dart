@@ -253,9 +253,6 @@ class _SecretCardState extends State<SecretCard> {
                       collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       onExpansionChanged: (v) {
                         setState(() => _isExpanded = v);
-                        if (v) {
-                          context.read<SecretBloc>().add(LogSecretAccess(widget.secret.id));
-                        }
                       },
                       iconColor: colors.accent,
                       collapsedIconColor: colors.accent.withValues(alpha: 0.4),
